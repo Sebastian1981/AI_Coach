@@ -156,3 +156,134 @@ def compute_combined_load(
         "Combined load score not yet implemented. "
         "Requires both df_session and df_wellness."
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Multi-module session scoring
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SPEED_TYPES: frozenset[str] = frozenset({
+    "sprint", "sprints", "speed drills", "skippings", "power", "jumps",
+})
+_SPEED_SPORTS: frozenset[str] = frozenset({
+    "speed drills", "sprint", "power",
+})
+
+
+def _classify_module(
+    sport: str,
+    training_type: str,
+    avg_hr: float,
+    hr_max: int,
+) -> str:
+    """Return stimulus category: 'speed' | 'aerobic' | 'lactate' | 'vo2max'."""
+    if (training_type or "").lower().strip() in _SPEED_TYPES:
+        return "speed"
+    if (sport or "").lower().strip() in _SPEED_SPORTS:
+        return "speed"
+    if pd.isna(avg_hr):
+        return "aerobic"
+    pct = avg_hr / hr_max
+    if pct < 0.75:
+        return "aerobic"
+    if pct < 0.87:
+        return "threshold"
+    return "lactate"
+
+
+# Recovery-cost weights per stimulus zone.
+# Rationale: recovery demand is non-linear with intensity.
+# Zone multipliers reflect empirical recovery-time ratios relative to Zone 1.
+#   Aerobic  (< 75 % HRmax)  → 1–2 days  → k = 1.0  (baseline)
+#   Schwelle (75–87 % HRmax) → 2–3 days  → k = 2.5
+#   Laktat   (> 87 % HRmax)  → 4–6 days  → k = 6.0
+#   Speed/Strength (neuromusc.) → 3–6 days → k_NM = 1.0
+#     (speed volume in [s × k_Sport] contributes directly)
+_K_AEROBIC   : float = 1.0
+_K_THRESHOLD : float = 2.5
+_K_LACTATE   : float = 6.0
+_K_SPEED     : float = 1.0   # [s × k_Sport] → same scale as recovery-weighted TRIMP
+
+
+def compute_session_scores(
+    df: pd.DataFrame,
+    hr_rest: int = 60,
+    hr_max: int = 190,
+    b: float = 1.92,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute per-day and weekly training stimulus scores from a module DataFrame.
+
+    Stimulus categories
+    -------------------
+    ausdauerreiz      – aerobic TRIMP (HR < 75 % HRmax)
+    schwellenreiz     – threshold TRIMP (75–87 % HRmax, around LT2)
+    laktatreiz        – high-intensity TRIMP (> 87 % HRmax, lactate tolerance)
+    schnelligkeitsreiz – neuromuscular volume: sets × duration_s × k_Sport [s]
+    regenerationsbedarf – recovery-weighted sum of all stimulus scores:
+                        aer×1.0 + schw×2.5 + lak×6.0 + speed×1.0
+
+    Parameters
+    ----------
+    df : DataFrame with columns expected by compute_endurance_performance()
+         plus 'sets' and 'duration_[s]' for speed modules.
+
+    Returns
+    -------
+    df_daily   : one row per training day
+    df_weekly  : weekly aggregates
+    """
+    df_mod, _ = compute_endurance_performance(df, hr_rest=hr_rest, hr_max=hr_max, b=b)
+
+    df_mod["category"] = [
+        _classify_module(r.sport, r.training_type, r.avg_hr_bpm, hr_max)
+        for r in df_mod.itertuples()
+    ]
+
+    # Speed volume from original df (HR too slow for short efforts)
+    sets_s  = pd.to_numeric(df.get("sets",         pd.Series(dtype=float, index=df.index)), errors="coerce")
+    dur_s_s = pd.to_numeric(df.get("duration_[s]", pd.Series(dtype=float, index=df.index)), errors="coerce")
+    df_mod["speed_vol_s"] = (sets_s.fillna(0) * dur_s_s.fillna(0)).values
+
+    # Aggregate per day
+    records = []
+    for date_val, grp in df_mod.groupby("date"):
+        is_speed = grp["category"] == "speed"
+        aer   = grp.loc[grp["category"] == "aerobic",    "total_load"].sum()
+        schw  = grp.loc[grp["category"] == "threshold",  "total_load"].sum()
+        lak   = grp.loc[grp["category"] == "lactate",    "total_load"].sum()
+        speed = (grp.loc[is_speed, "speed_vol_s"] * grp.loc[is_speed, "sport_factor"]).sum()
+        records.append({
+            "date":               date_val,
+            "module_count":       len(grp),
+            "regenerationsbedarf": (aer   * _K_AEROBIC
+                                   + schw  * _K_THRESHOLD
+                                   + lak   * _K_LACTATE
+                                   + speed * _K_SPEED),
+            "ausdauerreiz":       aer,
+            "schwellenreiz":      schw,
+            "laktatreiz":         lak,
+            "schnelligkeitsreiz": speed,
+        })
+
+    df_daily = pd.DataFrame(records).sort_values("date").reset_index(drop=True)
+
+    iso = pd.to_datetime(df_daily["date"]).dt.isocalendar()
+    df_daily["year"]          = iso.year.astype("Int64")
+    df_daily["calendar_week"] = iso.week.astype("Int64")
+
+    df_weekly = (
+        df_daily
+        .groupby(["year", "calendar_week"], dropna=True)
+        .agg(
+            training_days         = ("date",                  "count"),
+            total_modules         = ("module_count",          "sum"),
+            regenerationsbedarf   = ("regenerationsbedarf",   "sum"),
+            ausdauerreiz          = ("ausdauerreiz",          "sum"),
+            schwellenreiz      = ("schwellenreiz",      "sum"),
+            laktatreiz         = ("laktatreiz",         "sum"),
+            schnelligkeitsreiz = ("schnelligkeitsreiz", "sum"),
+        )
+        .reset_index()
+    )
+
+    return df_daily, df_weekly
