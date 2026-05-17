@@ -25,7 +25,11 @@ def create_day(data: DayIn, db: Session = Depends(get_session)):
             duration_min=m.duration_min,
             heart_rate_bpm=m.heart_rate_bpm,
             sets=m.sets,
+            reps=m.reps,
             duration_s=m.duration_s,
+            distance_m=m.distance_m,
+            is_maximal=m.is_maximal,
+            is_explosive=m.is_explosive,
             pause_s=m.pause_s,
             series=m.series,
             series_pause_s=m.series_pause_s,
@@ -48,7 +52,7 @@ def create_day(data: DayIn, db: Session = Depends(get_session)):
             ModuleOut(
                 id=m.id, order=m.order, sport=m.sport, training_type=m.training_type,
                 duration_min=m.duration_min, heart_rate_bpm=m.heart_rate_bpm,
-                sets=m.sets, duration_s=m.duration_s, pause_s=m.pause_s,
+                sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
             )
@@ -74,7 +78,7 @@ def list_days(db: Session = Depends(get_session)):
                 ModuleOut(
                     id=m.id, order=m.order, sport=m.sport, training_type=m.training_type,
                     duration_min=m.duration_min, heart_rate_bpm=m.heart_rate_bpm,
-                    sets=m.sets, duration_s=m.duration_s, pause_s=m.pause_s,
+                    sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
                 )
@@ -100,7 +104,7 @@ def update_day(day_id: int, data: DayIn, db: Session = Depends(get_session)):
         mod = TrainingModule(
             day_id=day.id, order=i + 1, sport=m.sport,
             training_type=m.training_type, duration_min=m.duration_min,
-            heart_rate_bpm=m.heart_rate_bpm, sets=m.sets, duration_s=m.duration_s,
+            heart_rate_bpm=m.heart_rate_bpm, sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive,
             pause_s=m.pause_s, series=m.series, series_pause_s=m.series_pause_s,
             weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
         )
@@ -118,7 +122,7 @@ def update_day(day_id: int, data: DayIn, db: Session = Depends(get_session)):
             ModuleOut(
                 id=m.id, order=m.order, sport=m.sport, training_type=m.training_type,
                 duration_min=m.duration_min, heart_rate_bpm=m.heart_rate_bpm,
-                sets=m.sets, duration_s=m.duration_s, pause_s=m.pause_s,
+                sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
             )

@@ -163,11 +163,48 @@ def compute_combined_load(
 # ─────────────────────────────────────────────────────────────────────────────
 
 _SPEED_TYPES: frozenset[str] = frozenset({
-    "sprint", "sprints", "speed drills", "skippings", "power", "jumps",
+    "sprint", "sprints", "speed drills", "skippings", "a-skips", "power", "jumps",
+    "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
 })
 _SPEED_SPORTS: frozenset[str] = frozenset({
     "speed drills", "sprint", "power",
 })
+
+# Sub-classification within the speed category
+_SPRINT_TYPES: frozenset[str] = frozenset({"sprint", "sprints"})
+_DRILL_TYPES:  frozenset[str] = frozenset({
+    "skippings", "a-skips", "speed drills", "power", "jumps",
+    "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
+})
+_BIKE_SPORTS:  frozenset[str] = frozenset({"bike", "rad", "radfahren", "cycling", "fahrrad"})
+_KRAFT_SPORTS: frozenset[str] = frozenset({"kraft"})
+
+
+def _speed_intensity_factor(sport: str, training_type: str, is_maximal) -> float:
+    """Return intensity weight within the speed category (applied on top of k_sport).
+
+    Effective factor (this value × k_sport):
+      Sprint maximal    Laufen : 1.00 × 1.3 = 1.30
+      Sprint submaximal Laufen : 0.35 × 1.3 = 0.46
+      Drills/skippings  Laufen : 0.15 × 1.3 = 0.20
+      Sprint maximal    Rad    : 0.12 × 1.0 = 0.12
+      Sprint submaximal Rad    : 0.06 × 1.0 = 0.06
+      Drill             Rad    : 0.05 × 1.0 = 0.05
+
+    is_maximal=None (legacy data, no flag set) → treated as maximal for sprints.
+    """
+    sport_lc = (sport or "").lower().strip()
+    type_lc  = (training_type or "").lower().strip()
+    is_bike  = sport_lc in _BIKE_SPORTS
+
+    if type_lc in _SPRINT_TYPES:
+        maximal = is_maximal is not False   # True or None → maximal
+        if is_bike:
+            return 0.12 if maximal else 0.06
+        return 1.0 if maximal else 0.35
+
+    # Drills, skippings, jumps, power, and any other speed type
+    return 0.05 if is_bike else 0.15
 
 
 def _classify_module(
@@ -176,7 +213,9 @@ def _classify_module(
     avg_hr: float,
     hr_max: int,
 ) -> str:
-    """Return stimulus category: 'speed' | 'aerobic' | 'lactate' | 'vo2max'."""
+    """Return stimulus category: 'speed' | 'aerobic' | 'threshold' | 'lactate' | 'kraft'."""
+    if (sport or "").lower().strip() in _KRAFT_SPORTS:
+        return "kraft"
     if (training_type or "").lower().strip() in _SPEED_TYPES:
         return "speed"
     if (sport or "").lower().strip() in _SPEED_SPORTS:
@@ -203,6 +242,7 @@ _K_AEROBIC   : float = 1.0
 _K_THRESHOLD : float = 2.5
 _K_LACTATE   : float = 6.0
 _K_SPEED     : float = 1.0   # [s × k_Sport] → same scale as recovery-weighted TRIMP
+_K_KRAFT     : float = 3.0   # [reps × k_explosive × k_Sport] → 2–4 days recovery
 
 
 def compute_session_scores(
@@ -242,27 +282,80 @@ def compute_session_scores(
     # Speed volume from original df (HR too slow for short efforts)
     sets_s  = pd.to_numeric(df.get("sets",         pd.Series(dtype=float, index=df.index)), errors="coerce")
     dur_s_s = pd.to_numeric(df.get("duration_[s]", pd.Series(dtype=float, index=df.index)), errors="coerce")
-    df_mod["speed_vol_s"] = (sets_s.fillna(0) * dur_s_s.fillna(0)).values
+
+    # Per-module intensity weight: sprint max/sub vs. drill, and bike penalty
+    _is_maximal  = df.get("is_maximal", pd.Series([None] * len(df), dtype=object, index=df.index))
+    _spd_factors = [
+        _speed_intensity_factor(r.sport, r.training_type, _is_maximal.iloc[i])
+        for i, r in enumerate(df_mod.itertuples())
+    ]
+    df_mod["speed_vol_s"] = (sets_s.fillna(0) * dur_s_s.fillna(0)).values * np.array(_spd_factors)
+
+    # Kraft volume: effective_sets × reps × k_explosive × k_sport
+    reps_s       = pd.to_numeric(df.get("reps", pd.Series(dtype=float, index=df.index)), errors="coerce")
+    _is_explosive = df.get("is_explosive", pd.Series([None] * len(df), dtype=object, index=df.index))
+    _kft_factors  = [1.5 if _is_explosive.iloc[i] is True else 1.0 for i in range(len(df))]
+    df_mod["kraft_vol"] = (sets_s.fillna(0) * reps_s.fillna(0)).values * np.array(_kft_factors)
+
+    # ── Cardiovascular TRIMP for speed modules with HR data ──────────────────
+    # If the user records an average HR for a speed module (sprints or drills),
+    # that HR already reflects rest periods too — meaning HR stayed elevated.
+    # We use total block time (work + pauses) to compute a supplementary TRIMP
+    # and add it to the appropriate HR zone (aerobic / threshold / lactate).
+    # This captures the cardiovascular component of dense sprint/drill circuits.
+    series_v   = pd.to_numeric(df.get("series",        pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(1)
+    sets_v     = pd.to_numeric(df.get("sets_per_serie", pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(1)
+    pause_v    = pd.to_numeric(df.get("pause_s",        pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
+    s_pause_v  = pd.to_numeric(df.get("series_pause_s", pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
+    dur_s_raw  = pd.to_numeric(df.get("duration_[s]",   pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
+
+    block_s = (series_v * sets_v * dur_s_raw
+               + series_v * (sets_v - 1).clip(lower=0) * pause_v
+               + (series_v - 1).clip(lower=0) * s_pause_v)
+    block_min = (block_s / 60.0).replace(0.0, np.nan)
+
+    is_drill_m = df_mod["category"] == "speed"
+    has_hr_m   = df_mod["avg_hr_bpm"].notna()
+    delta_hr_d = ((df_mod["avg_hr_bpm"] - hr_rest) / (hr_max - hr_rest)).clip(lower=0.0)
+    drill_trimp_raw = np.where(
+        is_drill_m & has_hr_m & block_min.notna().values,
+        block_min.fillna(0).values * delta_hr_d * np.exp(b * delta_hr_d),
+        0.0,
+    )
+    df_mod["drill_trimp_load"] = drill_trimp_raw * df_mod["sport_factor"].values
+    hr_pct = df_mod["avg_hr_bpm"] / hr_max
+    df_mod["drill_zone"] = np.where(
+        is_drill_m & has_hr_m,
+        np.where(hr_pct < 0.75, "aerobic", np.where(hr_pct < 0.87, "threshold", "lactate")),
+        "none",
+    )
 
     # Aggregate per day
     records = []
     for date_val, grp in df_mod.groupby("date"):
-        is_speed = grp["category"] == "speed"
-        aer   = grp.loc[grp["category"] == "aerobic",    "total_load"].sum()
-        schw  = grp.loc[grp["category"] == "threshold",  "total_load"].sum()
-        lak   = grp.loc[grp["category"] == "lactate",    "total_load"].sum()
+        is_speed   = grp["category"] == "speed"
+        is_kraft   = grp["category"] == "kraft"
+        drill_aer  = grp.loc[grp["drill_zone"] == "aerobic",    "drill_trimp_load"].sum()
+        drill_schw = grp.loc[grp["drill_zone"] == "threshold",  "drill_trimp_load"].sum()
+        drill_lak  = grp.loc[grp["drill_zone"] == "lactate",    "drill_trimp_load"].sum()
+        aer   = grp.loc[grp["category"] == "aerobic",    "total_load"].sum() + drill_aer
+        schw  = grp.loc[grp["category"] == "threshold",  "total_load"].sum() + drill_schw
+        lak   = grp.loc[grp["category"] == "lactate",    "total_load"].sum() + drill_lak
         speed = (grp.loc[is_speed, "speed_vol_s"] * grp.loc[is_speed, "sport_factor"]).sum()
+        kraft = (grp.loc[is_kraft, "kraft_vol"]   * grp.loc[is_kraft, "sport_factor"]).sum()
         records.append({
             "date":               date_val,
             "module_count":       len(grp),
             "regenerationsbedarf": (aer   * _K_AEROBIC
                                    + schw  * _K_THRESHOLD
                                    + lak   * _K_LACTATE
-                                   + speed * _K_SPEED),
+                                   + speed * _K_SPEED
+                                   + kraft * _K_KRAFT),
             "ausdauerreiz":       aer,
             "schwellenreiz":      schw,
             "laktatreiz":         lak,
             "schnelligkeitsreiz": speed,
+            "kraftreiz":          kraft,
         })
 
     df_daily = pd.DataFrame(records).sort_values("date").reset_index(drop=True)
@@ -282,6 +375,7 @@ def compute_session_scores(
             schwellenreiz      = ("schwellenreiz",      "sum"),
             laktatreiz         = ("laktatreiz",         "sum"),
             schnelligkeitsreiz = ("schnelligkeitsreiz", "sum"),
+            kraftreiz          = ("kraftreiz",          "sum"),
         )
         .reset_index()
     )

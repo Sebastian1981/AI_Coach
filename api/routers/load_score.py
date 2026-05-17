@@ -60,7 +60,14 @@ def get_load_score(db: Session = Depends(get_session)):
                 "duration_[min]":  m.duration_min,
                 "hear_rate_[bpm]": m.heart_rate_bpm,
                 "sets":            effective_sets,
+                "reps":            m.reps,
                 "duration_[s]":    m.duration_s,
+                "is_maximal":      m.is_maximal,
+                "is_explosive":    m.is_explosive,
+                "series":          m.series,
+                "sets_per_serie":  m.sets,
+                "pause_s":         m.pause_s,
+                "series_pause_s":  m.series_pause_s,
             })
 
     df = pd.DataFrame(rows)

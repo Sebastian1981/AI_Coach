@@ -111,7 +111,7 @@
               <div class="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Sport</label>
-                  <select x-model="mod.sport"
+                  <select x-model="mod.sport" @change="onSportChange(mod)"
                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Running</option>
                     <option>Bike</option>
@@ -124,19 +124,69 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Trainingsart</label>
-                  <select x-model="mod.training_type"
-                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Steady State</option>
-                    <option>Intervalls</option>
-                    <option>Sprints</option>
-                    <option>Skippings</option>
-                    <option>Jumps</option>
-                    <option>Kraft</option>
-                    <option>Einlaufen</option>
-                    <option>Auslaufen</option>
-                    <option>Sonstiges</option>
-                  </select>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Trainingsart / &Uuml;bung</label>
+                  <!-- Normale Trainingsarten -->
+                  <div x-show="mod.sport !== 'Kraft'">
+                    <select x-model="mod.training_type"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option>Steady State</option>
+                      <option>Intervalls</option>
+                      <option>Sprints</option>
+                      <optgroup label="Drills">
+                        <option>Skippings</option>
+                        <option>A-Skips</option>
+                        <option>Hopserlauf</option>
+                        <option>Kniehebelauf</option>
+                        <option>Anfersen</option>
+                        <option>Legcycling Drill</option>
+                        <option>Pawing Drill</option>
+                        <option>Seitgalopp</option>
+                        <option>Jumps</option>
+                      </optgroup>
+                      <option>Kraft</option>
+                      <option>Einlaufen</option>
+                      <option>Auslaufen</option>
+                      <option>Sonstiges</option>
+                    </select>
+                  </div>
+                  <!-- Kraft-spezifische &Uuml;bungen -->
+                  <div x-show="mod.sport === 'Kraft'">
+                    <select x-model="mod.training_type"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <optgroup label="Beine">
+                        <option>Kniebeuge</option>
+                        <option>Beinpresse</option>
+                        <option>Beinbeuger</option>
+                        <option>Romanian Deadlift</option>
+                        <option>Ausfallschritte</option>
+                        <option>Wadenheben</option>
+                      </optgroup>
+                      <optgroup label="Dr&uuml;cken">
+                        <option>Bankdrücken</option>
+                        <option>Schrägbank Drücken</option>
+                        <option>Schulterdrücken</option>
+                        <option>Dips</option>
+                        <option>Liegestütze</option>
+                      </optgroup>
+                      <optgroup label="Ziehen">
+                        <option>Klimmzüge</option>
+                        <option>Latziehen</option>
+                        <option>Rudern</option>
+                        <option>Bizepscurl</option>
+                        <option>Seitheben</option>
+                      </optgroup>
+                      <optgroup label="R&uuml;cken / Core">
+                        <option>Kreuzheben</option>
+                        <option>Hyperextensions</option>
+                        <option>Plank</option>
+                        <option>Crunch</option>
+                      </optgroup>
+                      <optgroup label="Sonstiges">
+                        <option>Kraft</option>
+                        <option>Sonstiges</option>
+                      </optgroup>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -147,7 +197,7 @@
                        class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
-              <!-- Interval: series / sets / duration_s / weight / pauses -->
+              <!-- Interval: series / sets / duration_s / distance_m / weight / pauses -->
               <div x-show="isInterval(mod)" class="flex flex-wrap gap-3 mb-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Serien</label>
@@ -155,14 +205,36 @@
                          class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">S&#228;tze/Serie</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">S&#228;tze</label>
                   <input type="number" x-model="mod.sets" min="1" step="1" placeholder="5"
+                         class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Wdh.</label>
+                  <input type="number" x-model="mod.reps" min="1" step="1" placeholder="10"
+                         class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div x-show="mod.training_type.toLowerCase().includes('sprint')" class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.is_maximal" class="rounded" />
+                    Maximal
+                  </label>
+                </div>
+                <div x-show="mod.sport === 'Kraft'" class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.is_explosive" class="rounded" />
+                    Explosiv
+                  </label>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Dauer [s]</label>
+                  <input type="number" x-model="mod.duration_s" min="1" step="1" placeholder="30"
                          class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Wdh./Dauer [s]</label>
-                  <input type="number" x-model="mod.duration_s" min="1" step="1" placeholder="6"
-                         class="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Distanz [m]</label>
+                  <input type="number" x-model="mod.distance_m" min="1" step="1" placeholder="200"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div x-show="!mod.bodyweight">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Gewicht [kg]</label>
@@ -252,7 +324,7 @@
                   <span class="text-gray-300">|</span>
                   <span x-text="mod.training_type"></span>
                   <span x-show="mod.duration_min" x-text="`${mod.duration_min} min`" class="text-gray-500 ml-1"></span>
-                  <span x-show="mod.sets && mod.duration_s" x-text="intervalLabel(mod)" class="text-gray-500 ml-1"></span>
+                  <span x-show="mod.sets" x-text="intervalLabel(mod)" class="text-gray-500 ml-1"></span>
                   <span x-show="mod.heart_rate_bpm" x-text="`${mod.heart_rate_bpm} bpm`" class="text-blue-500 ml-1"></span>
                 </div>
               </template>
@@ -281,33 +353,42 @@
     <div x-show="loadScoreData" class="space-y-8">
 
       <!-- Legend cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
         <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
           <div class="font-semibold text-blue-800 mb-1">Regenerationsbedarf</div>
           <div class="text-blue-600">Erholungs-gewichtete Last</div>
-          <div class="text-blue-500 mt-0.5">Aus&times;1 + Schw&times;2.5 + Lak&times;6 + NM&times;1</div>
+          <div class="text-blue-500 mt-0.5">Aus&times;1 + Schw&times;2.5 + Lak&times;6 + Schnell&times;1 + Kraft&times;3</div>
         </div>
         <div class="bg-green-50 border border-green-100 rounded-lg p-3">
           <div class="font-semibold text-green-800 mb-1">Ausdauerreiz</div>
           <div class="text-green-600">&#216;-HF 60&ndash;75% HRmax</div>
           <div x-show="profile.hr_max" class="text-green-500 mt-0.5 font-medium"
                x-text="`${Math.round(profile.hr_max * 0.60)}&ndash;${Math.round(profile.hr_max * 0.75)} bpm`"></div>
+          <div class="text-green-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
         </div>
         <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-3">
           <div class="font-semibold text-yellow-800 mb-1">Schwellenreiz</div>
           <div class="text-yellow-600">&#216;-HF 75&ndash;87% HRmax</div>
           <div x-show="profile.hr_max" class="text-yellow-500 mt-0.5 font-medium"
                x-text="`${Math.round(profile.hr_max * 0.75)}&ndash;${Math.round(profile.hr_max * 0.87)} bpm`"></div>
+          <div class="text-yellow-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
         </div>
         <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
           <div class="font-semibold text-orange-800 mb-1">Laktatreiz</div>
           <div class="text-orange-600">&#216;-HF &gt; 87% HRmax</div>
           <div x-show="profile.hr_max" class="text-orange-500 mt-0.5 font-medium"
                x-text="`> ${Math.round(profile.hr_max * 0.87)} bpm`"></div>
+          <div class="text-orange-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
         </div>
         <div class="bg-red-50 border border-red-100 rounded-lg p-3">
           <div class="font-semibold text-red-800 mb-1">Schnelligkeitsreiz</div>
-          <div class="text-red-600">Saetze x Dauer x k_Sport [s]</div>
+          <div class="text-red-600">S&auml;tze &times; Dauer &times; k_Int &times; k_Sport</div>
+          <div class="text-red-400 mt-0.5">Effektive Sekunden (gewichtet)</div>
+        </div>
+        <div class="bg-purple-50 border border-purple-100 rounded-lg p-3">
+          <div class="font-semibold text-purple-800 mb-1">Kraftreiz</div>
+          <div class="text-purple-600">S&auml;tze &times; Wdh. &times; k_Expl &times; k_Sport</div>
+          <div class="text-purple-400 mt-0.5">Eff. Wdh. (explosiv&times;1,5 / kontrolliert&times;1,0)</div>
         </div>
       </div>
 
@@ -321,10 +402,11 @@
                 <th class="pb-2 pr-4">KW</th>
                 <th class="pb-2 pr-4">Tage</th>
                 <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
-                <th class="pb-2 pr-4 text-green-700">Ausdauer</th>
-                <th class="pb-2 pr-4 text-yellow-700">Schwelle</th>
-                <th class="pb-2 pr-4 text-orange-700">Laktat</th>
-                <th class="pb-2 text-red-700">Schnell. [s]</th>
+                <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
+                <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
+                <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
+                <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
+                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
               </tr>
             </thead>
             <tbody>
@@ -336,7 +418,8 @@
                   <td class="py-2.5 pr-4 text-green-700" x-text="fmt(w.ausdauerreiz)"></td>
                   <td class="py-2.5 pr-4 text-yellow-700" x-text="fmt(w.schwellenreiz)"></td>
                   <td class="py-2.5 pr-4 text-orange-700" x-text="fmt(w.laktatreiz)"></td>
-                  <td class="py-2.5 text-red-700" x-text="fmt(w.schnelligkeitsreiz)"></td>
+                  <td class="py-2.5 pr-4 text-red-700" x-text="fmt(w.schnelligkeitsreiz)"></td>
+                  <td class="py-2.5 text-purple-700" x-text="fmt(w.kraftreiz)"></td>
                 </tr>
               </template>
             </tbody>
@@ -354,10 +437,11 @@
                 <th class="pb-2 pr-4">Datum</th>
                 <th class="pb-2 pr-4">Mod.</th>
                 <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
-                <th class="pb-2 pr-4 text-green-700">Ausdauer</th>
-                <th class="pb-2 pr-4 text-yellow-700">Schwelle</th>
-                <th class="pb-2 pr-4 text-orange-700">Laktat</th>
-                <th class="pb-2 text-red-700">Schnell. [s]</th>
+                <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
+                <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
+                <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
+                <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
+                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
               </tr>
             </thead>
             <tbody>
@@ -369,12 +453,55 @@
                   <td class="py-2 pr-4 text-green-700" x-text="fmt(d.ausdauerreiz)"></td>
                   <td class="py-2 pr-4 text-yellow-700" x-text="fmt(d.schwellenreiz)"></td>
                   <td class="py-2 pr-4 text-orange-700" x-text="fmt(d.laktatreiz)"></td>
-                  <td class="py-2 text-red-700" x-text="fmt(d.schnelligkeitsreiz)"></td>
+                  <td class="py-2 pr-4 text-red-700" x-text="fmt(d.schnelligkeitsreiz)"></td>
+                  <td class="py-2 text-purple-700" x-text="fmt(d.kraftreiz)"></td>
                 </tr>
               </template>
             </tbody>
           </table>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Glossar -->
+  <div class="mt-12 border-t border-gray-200 pt-8">
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Begriffserklärung</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-600">
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">TRIMP &ndash; Training Impulse</div>
+        <p>Dimensionsloser Belastungsscore nach Banister (1991), der Dauer <em>und</em> Intensität kombiniert:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">TRIMP = Dauer&thinsp;[min] &times; HF-Ratio &times; e<sup>b &middot; HF-Ratio</sup></p>
+        <p class="mt-1">HF-Ratio = (&Oslash;-HF &minus; HF<sub>Ruhe</sub>) / (HF<sub>max</sub> &minus; HF<sub>Ruhe</sub>), b&thinsp;=&thinsp;1,92 (Männer). Eine 60-min-Einheit bei 70&thinsp;% HF<sub>max</sub> ergibt typisch TRIMP&thinsp;&asymp;&thinsp;80&ndash;130 &ndash; deutlich mehr als die reine Minutenzahl. Fehlt die HF-Angabe, wird die Dauer in Minuten als Fallback verwendet.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">k_Sport &ndash; Sportfaktor</div>
+        <p>Multiplikator, der den muskulären Mehraufwand gegenüber dem reinen Herzkreislaufreiz berücksichtigt (z.&thinsp;B. Laufen &gt; Radfahren). Ausdauer-, Schwellen- und Laktatreiz werden als <code>TRIMP &times; k_Sport</code> ausgewiesen.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Effektive Sekunden &ndash; Schnelligkeitsreiz</div>
+        <p>Für kurze Sprints ist die Herzfrequenz kein sinnvoller Belastungsindikator (zu träge). Stattdessen gilt:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Reiz = Sätze &times; Dauer&thinsp;[s] &times; k_Int &times; k_Sport</p>
+        <p class="mt-1"><strong>k_Int</strong> unterscheidet die Sprintintensität: maximale Sprints (k=1,0), submaximale Sprints (k=0,35), alle Drills (Skippings, Hopserlauf, Kniehebelauf, Anfersen, Legcycling Drill, Pawing Drill, Seitgalopp, Jumps &ndash; alle k=0,15) &ndash; jeweils für Laufen; Radfahren wird zusätzlich abgesenkt. Die Einheit ist daher keine reine Sekunde, sondern ein gewichtetes Volumen.</p>
+        <p class="mt-2"><strong>Sprints/Drills + Pulsangabe:</strong> Wird für Speed-Module (Sprints <em>oder</em> Drills) eine &Oslash;-HF eingetragen, berechnet das System zusätzlich einen TRIMP auf Basis der <em>Gesamtblockzeit</em> (Arbeit + Pausen) und addiert diesen zum entsprechenden HF-Reiz (Ausdauer/Schwelle/Laktat). Die Ø-HF spiegelt bereits die Ruhephasen wider — wenn sie trotz Pausen hoch bleibt, ist das ein echter aerober/anaerober Reiz.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Kraft-Score &ndash; Kraftreiz</div>
+        <p>F&uuml;r Krafttraining ist die HF kein geeigneter Belastungsindikator. Der Reiz basiert auf dem mechanischen Volumen:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Reiz = S&auml;tze &times; Wdh. &times; k_Expl &times; k_Sport</p>
+        <p class="mt-1"><strong>k_Expl</strong>: explosive Ausf&uuml;hrung (Schnellkraft, Plyometrie) = 1,5 &ndash; kontrollierte Ausf&uuml;hrung (Hypertrophie, Kraft) = 1,0. Erholungsgewicht im Regenerationsbedarf: <strong>&times;&thinsp;3,0</strong> (2&ndash;4 Tage Erholung bei schwerem Training).</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Regenerationsbedarf</div>
+        <p>Gewichtete Summe aller Reize eines Tages bzw. einer Woche. Höhere Intensitätsbereiche erfordern mehr Erholung:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Aus&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Schw&thinsp;&times;&thinsp;2,5 &thinsp;+&thinsp; Lak&thinsp;&times;&thinsp;6,0 &thinsp;+&thinsp; Schnell&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Kraft&thinsp;&times;&thinsp;3,0</p>
+        <p class="mt-1">Schwellen- und Laktatbelastungen binden deutlich mehr Regenerationskapazität als aerobe Arbeit bei gleicher TRIMP-Punktzahl.</p>
       </div>
 
     </div>
@@ -386,11 +513,11 @@
 function app() {
   const today = new Date().toISOString().split('T')[0];
 
-  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Skippings','Jumps','Kraft']);
+  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft']);
 
   function newModule() {
     return { sport: 'Running', training_type: 'Steady State',
-             duration_min: '', heart_rate_bpm: '', series: '', sets: '', duration_s: '',
+             duration_min: '', heart_rate_bpm: '', series: '', sets: '', reps: '', is_maximal: true, is_explosive: false, duration_s: '', distance_m: '',
              weight_kg: '', bodyweight: false, pause_s: '', series_pause_s: '', notes: '' };
   }
 
@@ -408,7 +535,15 @@ function app() {
       catch { this.errorMsg = 'Fehler beim Laden.'; }
     },
 
-    isInterval(mod)     { return INTERVAL_TYPES.has(mod.training_type); },
+    isInterval(mod)     { return INTERVAL_TYPES.has(mod.training_type) || mod.sport === 'Kraft'; },
+    onSportChange(mod) {
+      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft','Einlaufen','Auslaufen','Sonstiges']);
+      if (mod.sport === 'Kraft' && genericTypes.has(mod.training_type)) {
+        mod.training_type = 'Kniebeuge';
+      } else if (mod.sport !== 'Kraft' && !genericTypes.has(mod.training_type)) {
+        mod.training_type = 'Steady State';
+      }
+    },
     addModule()         { this.form.modules.push(newModule()); },
     removeModule(index) { if (this.form.modules.length > 1) this.form.modules.splice(index, 1); },
 
@@ -420,7 +555,11 @@ function app() {
         heart_rate_bpm: mod.heart_rate_bpm || null,
         series:          this.isInterval(mod) && mod.series         ? parseInt(mod.series)            : null,
         sets:            this.isInterval(mod) && mod.sets           ? parseInt(mod.sets)              : null,
+        reps:            this.isInterval(mod) && mod.reps            ? parseInt(mod.reps)              : null,
+        is_maximal:      this.isInterval(mod) && mod.training_type.toLowerCase().includes('sprint') ? Boolean(mod.is_maximal) : null,
+        is_explosive:    mod.sport === 'Kraft' ? Boolean(mod.is_explosive) : null,
         duration_s:      this.isInterval(mod) && mod.duration_s     ? parseFloat(mod.duration_s)     : null,
+        distance_m:      this.isInterval(mod) && mod.distance_m     ? parseFloat(mod.distance_m)     : null,
         weight_kg:       this.isInterval(mod) && mod.weight_kg && !mod.bodyweight ? parseFloat(mod.weight_kg) : null,
         bodyweight:      this.isInterval(mod) && mod.bodyweight     ? true                           : null,
         pause_s:         this.isInterval(mod) && mod.pause_s        ? parseFloat(mod.pause_s)        : null,
@@ -486,7 +625,11 @@ function app() {
         heart_rate_bpm: m.heart_rate_bpm ?? '',
         series:         m.series         ?? '',
         sets:           m.sets           ?? '',
+        reps:           m.reps           ?? '',
+        is_maximal:     m.is_maximal     ?? true,
+        is_explosive:   m.is_explosive   ?? false,
         duration_s:     m.duration_s     ?? '',
+        distance_m:     m.distance_m     ?? '',
         weight_kg:      m.weight_kg      ?? '',
         bodyweight:     m.bodyweight     ?? false,
         pause_s:        m.pause_s        ?? '',
@@ -502,9 +645,11 @@ function app() {
     },
 
     intervalLabel(mod) {
-      const s     = mod.series ? `${mod.series}\u00d7` : '';
-      const dur   = mod.duration_s ? `\u00d7${mod.duration_s}` : '';
-      let label   = `${s}${mod.sets}${dur}`;
+      const s    = mod.series     ? `${mod.series}\u00d7` : '';
+      const reps = mod.reps       ? `\u00d7${mod.reps}Wdh` : '';
+      const dur  = mod.duration_s ? `\u00d7${mod.duration_s}s`  : '';
+      const dist = mod.distance_m ? `\u00d7${mod.distance_m}m`  : '';
+      let label  = `${s}${mod.sets}${reps}${dur}${dist}`;
       if (mod.bodyweight)      label += ' @ KG';
       else if (mod.weight_kg)  label += ` @ ${mod.weight_kg} kg`;
       const pauses = [];
