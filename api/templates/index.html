@@ -1,0 +1,664 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Coach – Trainingslog</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<div class="max-w-7xl mx-auto px-4 py-8" x-data="app()" x-init="init()" x-cloak>
+
+  <!-- Header -->
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">AI Coach</h1>
+      <p class="text-gray-500 mt-1">Trainingseinheiten erfassen &amp; auswerten</p>
+    </div>
+    <span class="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">localhost:8000</span>
+  </div>
+
+  <!-- Notifications -->
+  <div x-show="successMsg" x-transition
+       class="mb-5 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium"
+       x-text="successMsg"></div>
+  <div x-show="errorMsg" x-transition
+       class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium"
+       x-text="errorMsg"></div>
+
+  <!-- Athletenprofil -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+    <button type="button" @click="profileOpen = !profileOpen"
+            class="w-full flex items-center justify-between px-6 py-4 text-left">
+      <h2 class="text-base font-semibold text-gray-800">Athletenprofil</h2>
+      <span class="text-xs text-gray-400" x-text="profileOpen ? '\u25b2 Einklappen' : '\u25bc Daten eingeben'"></span>
+    </button>
+    <div x-show="profileOpen" x-transition class="px-6 pb-5 border-t border-gray-100">
+      <div class="flex flex-wrap gap-4 mt-4 items-end">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Alter [J]</label>
+          <input type="number" x-model="profile.age" min="10" max="100" placeholder="30"
+                 class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">HFmax [bpm]</label>
+          <input type="number" x-model="profile.hr_max" placeholder="190"
+                 class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">HFruhe [bpm]</label>
+          <input type="number" x-model="profile.hr_rest" placeholder="60"
+                 class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">K&#246;rpergewicht [kg]</label>
+          <input type="number" x-model="profile.weight_kg" step="0.1" placeholder="75"
+                 class="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">VO2max [ml/min/kg]</label>
+          <input type="number" x-model="profile.vo2max" step="0.1" placeholder="50"
+                 class="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <button type="button" @click="saveProfile()"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+          Profil speichern
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+
+    <!-- Form (3/5) -->
+    <div class="xl:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold text-gray-800" x-text="editDayId ? 'Einheit bearbeiten' : 'Neue Einheit'"></h2>
+        <button x-show="editDayId" type="button" @click="cancelEdit()"
+                class="text-xs text-gray-500 hover:text-gray-700 font-medium">Abbrechen</button>
+      </div>
+      <form @submit.prevent="submitForm" class="space-y-5">
+
+        <!-- Datum -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+          <input type="date" x-model="form.date" required
+                 class="w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <!-- Module list -->
+        <div class="space-y-4">
+          <template x-for="(mod, index) in form.modules" :key="index">
+            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                      x-text="`Modul ${index + 1}`"></span>
+                <button type="button" @click="removeModule(index)"
+                        x-show="form.modules.length > 1"
+                        class="text-xs text-red-400 hover:text-red-600 transition-colors font-medium">
+                  Entfernen
+                </button>
+              </div>
+
+              <!-- Sport + Trainingsart -->
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Sport</label>
+                  <select x-model="mod.sport" @change="onSportChange(mod)"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option>Running</option>
+                    <option>Bike</option>
+                    <option>Swim</option>
+                    <option>Speed Drills</option>
+                    <option>Sprint</option>
+                    <option>Power</option>
+                    <option>Kraft</option>
+                    <option>Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Trainingsart / &Uuml;bung</label>
+                  <!-- Normale Trainingsarten -->
+                  <div x-show="mod.sport !== 'Kraft'">
+                    <select x-model="mod.training_type"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option>Steady State</option>
+                      <option>Intervalls</option>
+                      <option>Sprints</option>
+                      <optgroup label="Drills">
+                        <option>Skippings</option>
+                        <option>A-Skips</option>
+                        <option>Hopserlauf</option>
+                        <option>Kniehebelauf</option>
+                        <option>Anfersen</option>
+                        <option>Legcycling Drill</option>
+                        <option>Pawing Drill</option>
+                        <option>Seitgalopp</option>
+                        <option>Jumps</option>
+                      </optgroup>
+                      <option>Kraft</option>
+                      <option>Einlaufen</option>
+                      <option>Auslaufen</option>
+                      <option>Sonstiges</option>
+                    </select>
+                  </div>
+                  <!-- Kraft-spezifische &Uuml;bungen -->
+                  <div x-show="mod.sport === 'Kraft'">
+                    <select x-model="mod.training_type"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <optgroup label="Beine">
+                        <option>Kniebeuge</option>
+                        <option>Beinpresse</option>
+                        <option>Beinbeuger</option>
+                        <option>Romanian Deadlift</option>
+                        <option>Ausfallschritte</option>
+                        <option>Wadenheben</option>
+                      </optgroup>
+                      <optgroup label="Dr&uuml;cken">
+                        <option>Bankdrücken</option>
+                        <option>Schrägbank Drücken</option>
+                        <option>Schulterdrücken</option>
+                        <option>Dips</option>
+                        <option>Liegestütze</option>
+                      </optgroup>
+                      <optgroup label="Ziehen">
+                        <option>Klimmzüge</option>
+                        <option>Latziehen</option>
+                        <option>Rudern</option>
+                        <option>Bizepscurl</option>
+                        <option>Seitheben</option>
+                      </optgroup>
+                      <optgroup label="R&uuml;cken / Core">
+                        <option>Kreuzheben</option>
+                        <option>Hyperextensions</option>
+                        <option>Plank</option>
+                        <option>Crunch</option>
+                      </optgroup>
+                      <optgroup label="Sonstiges">
+                        <option>Kraft</option>
+                        <option>Sonstiges</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Steady: duration_min (shown when training_type is NOT interval) -->
+              <div x-show="!isInterval(mod)" class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Dauer [min]</label>
+                <input type="number" x-model="mod.duration_min" min="1" step="0.5" placeholder="z. B. 45"
+                       class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <!-- Interval: series / sets / duration_s / distance_m / weight / pauses -->
+              <div x-show="isInterval(mod)" class="flex flex-wrap gap-3 mb-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Serien</label>
+                  <input type="number" x-model="mod.series" min="1" step="1" placeholder="3"
+                         class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">S&#228;tze</label>
+                  <input type="number" x-model="mod.sets" min="1" step="1" placeholder="5"
+                         class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Wdh.</label>
+                  <input type="number" x-model="mod.reps" min="1" step="1" placeholder="10"
+                         class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div x-show="mod.training_type.toLowerCase().includes('sprint')" class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.is_maximal" class="rounded" />
+                    Maximal
+                  </label>
+                </div>
+                <div x-show="mod.sport === 'Kraft'" class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.is_explosive" class="rounded" />
+                    Explosiv
+                  </label>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Dauer [s]</label>
+                  <input type="number" x-model="mod.duration_s" min="1" step="1" placeholder="30"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Distanz [m]</label>
+                  <input type="number" x-model="mod.distance_m" min="1" step="1" placeholder="200"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div x-show="!mod.bodyweight">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Gewicht [kg]</label>
+                  <input type="number" x-model="mod.weight_kg" min="0" step="0.5" placeholder="50"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.bodyweight" @change="if(mod.bodyweight) mod.weight_kg = ''" class="rounded" />
+                    K&#246;rpergewicht
+                  </label>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Satzpause [s]</label>
+                  <input type="number" x-model="mod.pause_s" min="0" step="1" placeholder="60"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Serienpause [s]</label>
+                  <input type="number" x-model="mod.series_pause_s" min="0" step="1" placeholder="180"
+                         class="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <!-- HR + Notes -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Ø-HF [bpm] <span class="text-gray-400 font-normal">(Ø, opt.)</span></label>
+                  <input type="text" x-model="mod.heart_rate_bpm" placeholder="145 oder 130-160"
+                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Notiz <span class="text-gray-400 font-normal">(opt.)</span></label>
+                  <input type="text" x-model="mod.notes" placeholder="Kommentar"
+                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+            </div>
+          </template>
+        </div>
+
+        <button type="button" @click="addModule()"
+                class="w-full border-2 border-dashed border-gray-300 hover:border-blue-400 text-gray-500 hover:text-blue-500 rounded-xl py-3 text-sm font-medium transition-colors">
+          + Modul hinzufuegen
+        </button>
+
+        <button type="submit" :disabled="loading"
+                class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+          <span x-show="!loading" x-text="editDayId ? 'Aktualisieren' : 'Einheit speichern'"></span>
+          <span x-show="loading">Speichern...</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Days list (2/5) -->
+    <div class="xl:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold text-gray-800">Einheiten</h2>
+        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full"
+              x-text="`${days.length} Tage`"></span>
+      </div>
+
+      <div x-show="days.length === 0" class="text-center py-16 text-gray-400 text-sm">
+        Noch keine Einheiten eingetragen.
+      </div>
+
+      <div class="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+        <template x-for="day in days" :key="day.id">
+          <div class="border border-gray-200 rounded-xl p-3 hover:border-gray-300 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-semibold text-gray-800" x-text="day.date"></span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400"
+                      x-text="`${day.modules.length} Modul${day.modules.length !== 1 ? 'e' : ''}`"></span>
+                <button @click="editDay(day)"
+                        class="text-blue-400 hover:text-blue-600 text-xs transition-colors font-medium">&#9998;</button>
+                <button @click="deleteDay(day.id)"
+                        class="text-red-400 hover:text-red-600 text-xs transition-colors font-medium">x</button>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <template x-for="(mod, i) in day.modules" :key="mod.id">
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+                  <span class="text-gray-400 w-4" x-text="`${i+1}.`"></span>
+                  <span class="font-medium text-gray-700" x-text="mod.sport"></span>
+                  <span class="text-gray-300">|</span>
+                  <span x-text="mod.training_type"></span>
+                  <span x-show="mod.duration_min" x-text="`${mod.duration_min} min`" class="text-gray-500 ml-1"></span>
+                  <span x-show="mod.sets" x-text="intervalLabel(mod)" class="text-gray-500 ml-1"></span>
+                  <span x-show="mod.heart_rate_bpm" x-text="`${mod.heart_rate_bpm} bpm`" class="text-blue-500 ml-1"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Score -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center gap-4 mb-6">
+      <h2 class="text-lg font-semibold text-gray-800">Trainingsreize &amp; Load Score</h2>
+      <button @click="fetchLoadScore()" :disabled="loadingScore || days.length === 0"
+              class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+        <span x-show="!loadingScore">Berechnen</span>
+        <span x-show="loadingScore">Laedt...</span>
+      </button>
+    </div>
+
+    <div x-show="!loadScoreData" class="text-sm text-gray-400 py-4">
+      Auf Berechnen klicken, um die Trainingsreize zu berechnen.
+    </div>
+
+    <div x-show="loadScoreData" class="space-y-8">
+
+      <!-- Legend cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <div class="font-semibold text-blue-800 mb-1">Regenerationsbedarf</div>
+          <div class="text-blue-600">Erholungs-gewichtete Last</div>
+          <div class="text-blue-500 mt-0.5">Aus&times;1 + Schw&times;2.5 + Lak&times;6 + Schnell&times;1 + Kraft&times;3</div>
+        </div>
+        <div class="bg-green-50 border border-green-100 rounded-lg p-3">
+          <div class="font-semibold text-green-800 mb-1">Ausdauerreiz</div>
+          <div class="text-green-600">&#216;-HF 60&ndash;75% HRmax</div>
+          <div x-show="profile.hr_max" class="text-green-500 mt-0.5 font-medium"
+               x-text="`${Math.round(profile.hr_max * 0.60)}&ndash;${Math.round(profile.hr_max * 0.75)} bpm`"></div>
+          <div class="text-green-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-3">
+          <div class="font-semibold text-yellow-800 mb-1">Schwellenreiz</div>
+          <div class="text-yellow-600">&#216;-HF 75&ndash;87% HRmax</div>
+          <div x-show="profile.hr_max" class="text-yellow-500 mt-0.5 font-medium"
+               x-text="`${Math.round(profile.hr_max * 0.75)}&ndash;${Math.round(profile.hr_max * 0.87)} bpm`"></div>
+          <div class="text-yellow-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
+        </div>
+        <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
+          <div class="font-semibold text-orange-800 mb-1">Laktatreiz</div>
+          <div class="text-orange-600">&#216;-HF &gt; 87% HRmax</div>
+          <div x-show="profile.hr_max" class="text-orange-500 mt-0.5 font-medium"
+               x-text="`> ${Math.round(profile.hr_max * 0.87)} bpm`"></div>
+          <div class="text-orange-400 mt-0.5">TRIMP-Score (min &times; HF-k &times; k_Sport)</div>
+        </div>
+        <div class="bg-red-50 border border-red-100 rounded-lg p-3">
+          <div class="font-semibold text-red-800 mb-1">Schnelligkeitsreiz</div>
+          <div class="text-red-600">S&auml;tze &times; Dauer &times; k_Int &times; k_Sport</div>
+          <div class="text-red-400 mt-0.5">Effektive Sekunden (gewichtet)</div>
+        </div>
+        <div class="bg-purple-50 border border-purple-100 rounded-lg p-3">
+          <div class="font-semibold text-purple-800 mb-1">Kraftreiz</div>
+          <div class="text-purple-600">S&auml;tze &times; Wdh. &times; k_Expl &times; k_Sport</div>
+          <div class="text-purple-400 mt-0.5">Eff. Wdh. (explosiv&times;1,5 / kontrolliert&times;1,0)</div>
+        </div>
+      </div>
+
+      <!-- Weekly -->
+      <div>
+        <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Wochensummen</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b-2 border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th class="pb-2 pr-4">KW</th>
+                <th class="pb-2 pr-4">Tage</th>
+                <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
+                <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
+                <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
+                <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
+                <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
+                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="w in loadScoreData.weekly" :key="`${w.year}-${w.calendar_week}`">
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2.5 pr-4 font-semibold text-gray-700" x-text="`${w.year} / KW ${w.calendar_week}`"></td>
+                  <td class="py-2.5 pr-4 text-gray-500" x-text="w.training_days"></td>
+                  <td class="py-2.5 pr-4 font-semibold text-blue-700" x-text="fmt(w.regenerationsbedarf)"></td>
+                  <td class="py-2.5 pr-4 text-green-700" x-text="fmt(w.ausdauerreiz)"></td>
+                  <td class="py-2.5 pr-4 text-yellow-700" x-text="fmt(w.schwellenreiz)"></td>
+                  <td class="py-2.5 pr-4 text-orange-700" x-text="fmt(w.laktatreiz)"></td>
+                  <td class="py-2.5 pr-4 text-red-700" x-text="fmt(w.schnelligkeitsreiz)"></td>
+                  <td class="py-2.5 text-purple-700" x-text="fmt(w.kraftreiz)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Daily -->
+      <div>
+        <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Tages-Detail</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b-2 border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th class="pb-2 pr-4">Datum</th>
+                <th class="pb-2 pr-4">Mod.</th>
+                <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
+                <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
+                <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
+                <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
+                <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
+                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(d, i) in loadScoreData.daily" :key="i">
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-2 pr-4 font-medium text-gray-800" x-text="d.date"></td>
+                  <td class="py-2 pr-4 text-gray-500" x-text="d.module_count"></td>
+                  <td class="py-2 pr-4 font-semibold text-blue-700" x-text="fmt(d.regenerationsbedarf)"></td>
+                  <td class="py-2 pr-4 text-green-700" x-text="fmt(d.ausdauerreiz)"></td>
+                  <td class="py-2 pr-4 text-yellow-700" x-text="fmt(d.schwellenreiz)"></td>
+                  <td class="py-2 pr-4 text-orange-700" x-text="fmt(d.laktatreiz)"></td>
+                  <td class="py-2 pr-4 text-red-700" x-text="fmt(d.schnelligkeitsreiz)"></td>
+                  <td class="py-2 text-purple-700" x-text="fmt(d.kraftreiz)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Glossar -->
+  <div class="mt-12 border-t border-gray-200 pt-8">
+    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Begriffserklärung</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-600">
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">TRIMP &ndash; Training Impulse</div>
+        <p>Dimensionsloser Belastungsscore nach Banister (1991), der Dauer <em>und</em> Intensität kombiniert:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">TRIMP = Dauer&thinsp;[min] &times; HF-Ratio &times; e<sup>b &middot; HF-Ratio</sup></p>
+        <p class="mt-1">HF-Ratio = (&Oslash;-HF &minus; HF<sub>Ruhe</sub>) / (HF<sub>max</sub> &minus; HF<sub>Ruhe</sub>), b&thinsp;=&thinsp;1,92 (Männer). Eine 60-min-Einheit bei 70&thinsp;% HF<sub>max</sub> ergibt typisch TRIMP&thinsp;&asymp;&thinsp;80&ndash;130 &ndash; deutlich mehr als die reine Minutenzahl. Fehlt die HF-Angabe, wird die Dauer in Minuten als Fallback verwendet.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">k_Sport &ndash; Sportfaktor</div>
+        <p>Multiplikator, der den muskulären Mehraufwand gegenüber dem reinen Herzkreislaufreiz berücksichtigt (z.&thinsp;B. Laufen &gt; Radfahren). Ausdauer-, Schwellen- und Laktatreiz werden als <code>TRIMP &times; k_Sport</code> ausgewiesen.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Effektive Sekunden &ndash; Schnelligkeitsreiz</div>
+        <p>Für kurze Sprints ist die Herzfrequenz kein sinnvoller Belastungsindikator (zu träge). Stattdessen gilt:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Reiz = Sätze &times; Dauer&thinsp;[s] &times; k_Int &times; k_Sport</p>
+        <p class="mt-1"><strong>k_Int</strong> unterscheidet die Sprintintensität: maximale Sprints (k=1,0), submaximale Sprints (k=0,35), alle Drills (Skippings, Hopserlauf, Kniehebelauf, Anfersen, Legcycling Drill, Pawing Drill, Seitgalopp, Jumps &ndash; alle k=0,15) &ndash; jeweils für Laufen; Radfahren wird zusätzlich abgesenkt. Die Einheit ist daher keine reine Sekunde, sondern ein gewichtetes Volumen.</p>
+        <p class="mt-2"><strong>Sprints/Drills + Pulsangabe:</strong> Wird für Speed-Module (Sprints <em>oder</em> Drills) eine &Oslash;-HF eingetragen, berechnet das System zusätzlich einen TRIMP auf Basis der <em>Gesamtblockzeit</em> (Arbeit + Pausen) und addiert diesen zum entsprechenden HF-Reiz (Ausdauer/Schwelle/Laktat). Die Ø-HF spiegelt bereits die Ruhephasen wider — wenn sie trotz Pausen hoch bleibt, ist das ein echter aerober/anaerober Reiz.</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Kraft-Score &ndash; Kraftreiz</div>
+        <p>F&uuml;r Krafttraining ist die HF kein geeigneter Belastungsindikator. Der Reiz basiert auf dem mechanischen Volumen:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Reiz = S&auml;tze &times; Wdh. &times; k_Expl &times; k_Sport</p>
+        <p class="mt-1"><strong>k_Expl</strong>: explosive Ausf&uuml;hrung (Schnellkraft, Plyometrie) = 1,5 &ndash; kontrollierte Ausf&uuml;hrung (Hypertrophie, Kraft) = 1,0. Erholungsgewicht im Regenerationsbedarf: <strong>&times;&thinsp;3,0</strong> (2&ndash;4 Tage Erholung bei schwerem Training).</p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Regenerationsbedarf</div>
+        <p>Gewichtete Summe aller Reize eines Tages bzw. einer Woche. Höhere Intensitätsbereiche erfordern mehr Erholung:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Aus&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Schw&thinsp;&times;&thinsp;2,5 &thinsp;+&thinsp; Lak&thinsp;&times;&thinsp;6,0 &thinsp;+&thinsp; Schnell&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Kraft&thinsp;&times;&thinsp;3,0</p>
+        <p class="mt-1">Schwellen- und Laktatbelastungen binden deutlich mehr Regenerationskapazität als aerobe Arbeit bei gleicher TRIMP-Punktzahl.</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function app() {
+  const today = new Date().toISOString().split('T')[0];
+
+  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft']);
+
+  function newModule() {
+    return { sport: 'Running', training_type: 'Steady State',
+             duration_min: '', heart_rate_bpm: '', series: '', sets: '', reps: '', is_maximal: true, is_explosive: false, duration_s: '', distance_m: '',
+             weight_kg: '', bodyweight: false, pause_s: '', series_pause_s: '', notes: '' };
+  }
+
+  return {
+    days: [], loading: false, loadingScore: false,
+    loadScoreData: null, successMsg: '', errorMsg: '',
+    form: { date: today, modules: [newModule()] },
+    profile: { age: null, hr_max: null, hr_rest: null, weight_kg: null, vo2max: null },
+    profileOpen: false, editDayId: null,
+
+    async init() { await Promise.all([this.loadDays(), this.loadProfile()]); },
+
+    async loadDays() {
+      try { const r = await fetch('/api/days'); this.days = await r.json(); }
+      catch { this.errorMsg = 'Fehler beim Laden.'; }
+    },
+
+    isInterval(mod)     { return INTERVAL_TYPES.has(mod.training_type) || mod.sport === 'Kraft'; },
+    onSportChange(mod) {
+      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft','Einlaufen','Auslaufen','Sonstiges']);
+      if (mod.sport === 'Kraft' && genericTypes.has(mod.training_type)) {
+        mod.training_type = 'Kniebeuge';
+      } else if (mod.sport !== 'Kraft' && !genericTypes.has(mod.training_type)) {
+        mod.training_type = 'Steady State';
+      }
+    },
+    addModule()         { this.form.modules.push(newModule()); },
+    removeModule(index) { if (this.form.modules.length > 1) this.form.modules.splice(index, 1); },
+
+    async submitForm() {
+      this.loading = true; this.successMsg = ''; this.errorMsg = '';
+      const modules = this.form.modules.map((mod, i) => ({
+        order: i + 1, sport: mod.sport, training_type: mod.training_type,
+        duration_min:   !this.isInterval(mod) && mod.duration_min ? parseFloat(mod.duration_min) : null,
+        heart_rate_bpm: mod.heart_rate_bpm || null,
+        series:          this.isInterval(mod) && mod.series         ? parseInt(mod.series)            : null,
+        sets:            this.isInterval(mod) && mod.sets           ? parseInt(mod.sets)              : null,
+        reps:            this.isInterval(mod) && mod.reps            ? parseInt(mod.reps)              : null,
+        is_maximal:      this.isInterval(mod) && mod.training_type.toLowerCase().includes('sprint') ? Boolean(mod.is_maximal) : null,
+        is_explosive:    mod.sport === 'Kraft' ? Boolean(mod.is_explosive) : null,
+        duration_s:      this.isInterval(mod) && mod.duration_s     ? parseFloat(mod.duration_s)     : null,
+        distance_m:      this.isInterval(mod) && mod.distance_m     ? parseFloat(mod.distance_m)     : null,
+        weight_kg:       this.isInterval(mod) && mod.weight_kg && !mod.bodyweight ? parseFloat(mod.weight_kg) : null,
+        bodyweight:      this.isInterval(mod) && mod.bodyweight     ? true                           : null,
+        pause_s:         this.isInterval(mod) && mod.pause_s        ? parseFloat(mod.pause_s)        : null,
+        series_pause_s:  this.isInterval(mod) && mod.series_pause_s ? parseFloat(mod.series_pause_s) : null,
+        notes:           mod.notes || null,
+      }));
+      try {
+        const url    = this.editDayId ? `/api/days/${this.editDayId}` : '/api/days';
+        const method = this.editDayId ? 'PUT' : 'POST';
+        const r = await fetch(url, {
+          method, headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ date: this.form.date, modules }),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText);
+        this.successMsg = this.editDayId
+          ? `Einheit vom ${this.form.date} aktualisiert!`
+          : `Einheit vom ${this.form.date} mit ${modules.length} Modul(en) gespeichert!`;
+        this.editDayId = null;
+        this.form = { date: today, modules: [newModule()] }; this.loadScoreData = null;
+        await this.loadDays();
+        setTimeout(() => { this.successMsg = ''; }, 4000);
+      } catch(e) { this.errorMsg = `Fehler: ${e.message}`; }
+      finally    { this.loading = false; }
+    },
+
+    async deleteDay(id) {
+      if (!confirm('Gesamten Trainingstag loeschen?')) return;
+      try { await fetch(`/api/days/${id}`, { method: 'DELETE' }); await this.loadDays(); this.loadScoreData = null; }
+      catch { this.errorMsg = 'Fehler beim Loeschen.'; }
+    },
+
+    async fetchLoadScore() {
+      this.loadingScore = true;
+      try { const r = await fetch('/api/load-score'); this.loadScoreData = await r.json(); }
+      catch { this.errorMsg = 'Fehler bei der Berechnung.'; }
+      finally { this.loadingScore = false; }
+    },
+
+    fmt(v) { return v == null ? '-' : (+v).toFixed(1); },
+
+    async loadProfile() {
+      try { const r = await fetch('/api/profile'); this.profile = await r.json(); } catch {}
+    },
+
+    async saveProfile() {
+      try {
+        await fetch('/api/profile', {
+          method: 'PUT', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(this.profile),
+        });
+        this.successMsg = 'Profil gespeichert!';
+        setTimeout(() => { this.successMsg = ''; }, 3000);
+      } catch(e) { this.errorMsg = `Fehler: ${e.message}`; }
+    },
+
+    editDay(day) {
+      this.editDayId = day.id;
+      this.form.date = day.date;
+      this.form.modules = day.modules.map(m => ({
+        sport:          m.sport,
+        training_type:  m.training_type,
+        duration_min:   m.duration_min   ?? '',
+        heart_rate_bpm: m.heart_rate_bpm ?? '',
+        series:         m.series         ?? '',
+        sets:           m.sets           ?? '',
+        reps:           m.reps           ?? '',
+        is_maximal:     m.is_maximal     ?? true,
+        is_explosive:   m.is_explosive   ?? false,
+        duration_s:     m.duration_s     ?? '',
+        distance_m:     m.distance_m     ?? '',
+        weight_kg:      m.weight_kg      ?? '',
+        bodyweight:     m.bodyweight     ?? false,
+        pause_s:        m.pause_s        ?? '',
+        series_pause_s: m.series_pause_s ?? '',
+        notes:          m.notes          ?? '',
+      }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    cancelEdit() {
+      this.editDayId = null;
+      this.form = { date: today, modules: [newModule()] };
+    },
+
+    intervalLabel(mod) {
+      const s    = mod.series     ? `${mod.series}\u00d7` : '';
+      const reps = mod.reps       ? `\u00d7${mod.reps}Wdh` : '';
+      const dur  = mod.duration_s ? `\u00d7${mod.duration_s}s`  : '';
+      const dist = mod.distance_m ? `\u00d7${mod.distance_m}m`  : '';
+      let label  = `${s}${mod.sets}${reps}${dur}${dist}`;
+      if (mod.bodyweight)      label += ' @ KG';
+      else if (mod.weight_kg)  label += ` @ ${mod.weight_kg} kg`;
+      const pauses = [];
+      if (mod.pause_s)        pauses.push(`Satzp: ${mod.pause_s}s`);
+      if (mod.series_pause_s) pauses.push(`Serienp: ${mod.series_pause_s}s`);
+      return pauses.length ? `${label} | ${pauses.join(' / ')}` : label;
+    },
+  };
+}
+</script>
+</body>
+</html>
