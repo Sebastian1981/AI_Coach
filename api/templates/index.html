@@ -118,7 +118,7 @@
                     <option>Swim</option>
                     <option>Speed Drills</option>
                     <option>Sprint</option>
-                    <option>Power</option>
+                    <option>Hiking</option>
                     <option>Kraft</option>
                     <option>Sonstiges</option>
                   </select>
@@ -132,6 +132,7 @@
                       <option>Steady State</option>
                       <option>Intervalls</option>
                       <option>Sprints</option>
+                      <option>Steigerungsläufe</option>
                       <optgroup label="Drills">
                         <option>Skippings</option>
                         <option>A-Skips</option>
@@ -141,7 +142,11 @@
                         <option>Legcycling Drill</option>
                         <option>Pawing Drill</option>
                         <option>Seitgalopp</option>
-                        <option>Jumps</option>
+                      </optgroup>
+                      <optgroup label="Spr&uuml;nge">
+                        <option>Easy Jumps</option>
+                        <option>Explosive Jumps</option>
+                        <option>Jump Runs</option>
                       </optgroup>
                       <option>Kraft</option>
                       <option>Einlaufen</option>
@@ -355,9 +360,9 @@
       <!-- Legend cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
         <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
-          <div class="font-semibold text-blue-800 mb-1">Regenerationsbedarf</div>
-          <div class="text-blue-600">Erholungs-gewichtete Last</div>
-          <div class="text-blue-500 mt-0.5">Aus&times;1 + Schw&times;2.5 + Lak&times;6 + Schnell&times;1 + Kraft&times;3</div>
+          <div class="font-semibold text-blue-800 mb-1">Impact Score</div>
+          <div class="text-blue-600">Gewichteter Gesamtreiz</div>
+          <div class="text-blue-500 mt-0.5">Aus&times;1 + Schw&times;3 + Lak&times;6 + Schnell&times;4 + Kraft&times;3</div>
         </div>
         <div class="bg-green-50 border border-green-100 rounded-lg p-3">
           <div class="font-semibold text-green-800 mb-1">Ausdauerreiz</div>
@@ -390,6 +395,11 @@
           <div class="text-purple-600">S&auml;tze &times; Wdh. &times; k_Expl &times; k_Sport</div>
           <div class="text-purple-400 mt-0.5">Eff. Wdh. (explosiv&times;1,5 / kontrolliert&times;1,0)</div>
         </div>
+        <div class="bg-teal-50 border border-teal-100 rounded-lg p-3">
+          <div class="font-semibold text-teal-800 mb-1">Erholungszeit</div>
+          <div class="text-teal-600">Tage bis Vollregeneration</div>
+          <div class="text-teal-400 mt-0.5">&tau;&thinsp;&middot;&thinsp;ln(1&thinsp;+&thinsp;L&thinsp;/&thinsp;L&#8320;) &mdash; Banister-Modell</div>
+        </div>
       </div>
 
       <!-- Weekly -->
@@ -401,12 +411,12 @@
               <tr class="border-b-2 border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
                 <th class="pb-2 pr-4">KW</th>
                 <th class="pb-2 pr-4">Tage</th>
-                <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
                 <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
                 <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
                 <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
                 <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
-                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
+                <th class="pb-2 pr-4 text-purple-700">Kraft (Eff.Wdh.)</th>
+                <th class="pb-2 text-blue-700">Impact Score</th>
               </tr>
             </thead>
             <tbody>
@@ -414,12 +424,12 @@
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                   <td class="py-2.5 pr-4 font-semibold text-gray-700" x-text="`${w.year} / KW ${w.calendar_week}`"></td>
                   <td class="py-2.5 pr-4 text-gray-500" x-text="w.training_days"></td>
-                  <td class="py-2.5 pr-4 font-semibold text-blue-700" x-text="fmt(w.regenerationsbedarf)"></td>
                   <td class="py-2.5 pr-4 text-green-700" x-text="fmt(w.ausdauerreiz)"></td>
                   <td class="py-2.5 pr-4 text-yellow-700" x-text="fmt(w.schwellenreiz)"></td>
                   <td class="py-2.5 pr-4 text-orange-700" x-text="fmt(w.laktatreiz)"></td>
                   <td class="py-2.5 pr-4 text-red-700" x-text="fmt(w.schnelligkeitsreiz)"></td>
-                  <td class="py-2.5 text-purple-700" x-text="fmt(w.kraftreiz)"></td>
+                  <td class="py-2.5 pr-4 text-purple-700" x-text="fmt(w.kraftreiz)"></td>
+                  <td class="py-2.5 font-semibold text-blue-700" x-text="fmt(w.regenerationsbedarf)"></td>
                 </tr>
               </template>
             </tbody>
@@ -436,12 +446,13 @@
               <tr class="border-b-2 border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
                 <th class="pb-2 pr-4">Datum</th>
                 <th class="pb-2 pr-4">Mod.</th>
-                <th class="pb-2 pr-4 text-blue-700">Regen.-bedarf</th>
                 <th class="pb-2 pr-4 text-green-700">Ausdauer (TRIMP)</th>
                 <th class="pb-2 pr-4 text-yellow-700">Schwelle (TRIMP)</th>
                 <th class="pb-2 pr-4 text-orange-700">Laktat (TRIMP)</th>
                 <th class="pb-2 pr-4 text-red-700">Schnell. (Eff.Sek.)</th>
-                <th class="pb-2 text-purple-700">Kraft (Eff.Wdh.)</th>
+                <th class="pb-2 pr-4 text-purple-700">Kraft (Eff.Wdh.)</th>
+                <th class="pb-2 pr-4 text-blue-700">Impact Score</th>
+                <th class="pb-2 text-teal-700">Erhol. [d]</th>
               </tr>
             </thead>
             <tbody>
@@ -449,12 +460,13 @@
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                   <td class="py-2 pr-4 font-medium text-gray-800" x-text="d.date"></td>
                   <td class="py-2 pr-4 text-gray-500" x-text="d.module_count"></td>
-                  <td class="py-2 pr-4 font-semibold text-blue-700" x-text="fmt(d.regenerationsbedarf)"></td>
                   <td class="py-2 pr-4 text-green-700" x-text="fmt(d.ausdauerreiz)"></td>
                   <td class="py-2 pr-4 text-yellow-700" x-text="fmt(d.schwellenreiz)"></td>
                   <td class="py-2 pr-4 text-orange-700" x-text="fmt(d.laktatreiz)"></td>
                   <td class="py-2 pr-4 text-red-700" x-text="fmt(d.schnelligkeitsreiz)"></td>
-                  <td class="py-2 text-purple-700" x-text="fmt(d.kraftreiz)"></td>
+                  <td class="py-2 pr-4 text-purple-700" x-text="fmt(d.kraftreiz)"></td>
+                  <td class="py-2 pr-4 font-semibold text-blue-700" x-text="fmt(d.regenerationsbedarf)"></td>
+                  <td class="py-2 font-semibold text-teal-700" x-text="d.recovery_days != null ? d.recovery_days + ' d' : '—'"></td>
                 </tr>
               </template>
             </tbody>
@@ -486,7 +498,20 @@
         <div class="font-semibold text-gray-800 mb-1">Effektive Sekunden &ndash; Schnelligkeitsreiz</div>
         <p>Für kurze Sprints ist die Herzfrequenz kein sinnvoller Belastungsindikator (zu träge). Stattdessen gilt:</p>
         <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Reiz = Sätze &times; Dauer&thinsp;[s] &times; k_Int &times; k_Sport</p>
-        <p class="mt-1"><strong>k_Int</strong> unterscheidet die Sprintintensität: maximale Sprints (k=1,0), submaximale Sprints (k=0,35), alle Drills (Skippings, Hopserlauf, Kniehebelauf, Anfersen, Legcycling Drill, Pawing Drill, Seitgalopp, Jumps &ndash; alle k=0,15) &ndash; jeweils für Laufen; Radfahren wird zusätzlich abgesenkt. Die Einheit ist daher keine reine Sekunde, sondern ein gewichtetes Volumen.</p>
+        <p class="mt-1"><strong>k_Int</strong> unterscheidet die Intensit&auml;t:</p>
+        <table class="mt-1 w-full text-xs bg-white rounded border border-gray-100">
+          <thead><tr class="border-b border-gray-200 text-gray-500"><th class="px-2 py-1 text-left">Typ</th><th class="px-2 py-1 text-left">k_Int (Laufen)</th></tr></thead>
+          <tbody>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Sprint maximal</td><td class="px-2 py-0.5 font-mono">1,00</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Sprint submaximal</td><td class="px-2 py-0.5 font-mono">0,35</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Steigerungsl&auml;ufe</td><td class="px-2 py-0.5 font-mono">0,22</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Jump Runs</td><td class="px-2 py-0.5 font-mono">0,35</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Explosive Jumps</td><td class="px-2 py-0.5 font-mono">0,50</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Easy Jumps</td><td class="px-2 py-0.5 font-mono">0,20</td></tr>
+            <tr><td class="px-2 py-0.5">Drills (Skippings, A-Skips, Hopserlauf &hellip;)</td><td class="px-2 py-0.5 font-mono">0,15</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-1">Radfahren wird zus&auml;tzlich abgesenkt (Drills / Sprints: 0,05 / 0,06 / 0,12). Die Einheit ist kein reines Sekunden-Volumen, sondern ein gewichtetes neuromuskulares Ma&szlig;.</p>
         <p class="mt-2"><strong>Sprints/Drills + Pulsangabe:</strong> Wird für Speed-Module (Sprints <em>oder</em> Drills) eine &Oslash;-HF eingetragen, berechnet das System zusätzlich einen TRIMP auf Basis der <em>Gesamtblockzeit</em> (Arbeit + Pausen) und addiert diesen zum entsprechenden HF-Reiz (Ausdauer/Schwelle/Laktat). Die Ø-HF spiegelt bereits die Ruhephasen wider — wenn sie trotz Pausen hoch bleibt, ist das ein echter aerober/anaerober Reiz.</p>
       </div>
 
@@ -498,14 +523,25 @@
       </div>
 
       <div class="bg-gray-50 rounded-lg p-4">
-        <div class="font-semibold text-gray-800 mb-1">Regenerationsbedarf</div>
+        <div class="font-semibold text-gray-800 mb-1">Impact Score</div>
         <p>Gewichtete Summe aller Reize eines Tages bzw. einer Woche. Höhere Intensitätsbereiche erfordern mehr Erholung:</p>
-        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Aus&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Schw&thinsp;&times;&thinsp;2,5 &thinsp;+&thinsp; Lak&thinsp;&times;&thinsp;6,0 &thinsp;+&thinsp; Schnell&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Kraft&thinsp;&times;&thinsp;3,0</p>
-        <p class="mt-1">Schwellen- und Laktatbelastungen binden deutlich mehr Regenerationskapazität als aerobe Arbeit bei gleicher TRIMP-Punktzahl.</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">Aus&thinsp;&times;&thinsp;1,0 &thinsp;+&thinsp; Schw&thinsp;&times;&thinsp;3,0 &thinsp;+&thinsp; Lak&thinsp;&times;&thinsp;6,0 &thinsp;+&thinsp; Schnell&thinsp;&times;&thinsp;4,0 &thinsp;+&thinsp; Kraft&thinsp;&times;&thinsp;3,0</p>
+        <p class="mt-1">Schwellen- und Laktatbelastungen binden deutlich mehr Regenerationskapazität als aerobe Arbeit bei gleicher TRIMP-Punktzahl. Speed-Arbeit (k=4,0) wird höher gewichtet als Krafttraining (k=3,0), da zusätzlich Impaktkräfte und Sehnenbelastung auftreten.</p>
       </div>
 
-    </div>
-  </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="font-semibold text-gray-800 mb-1">Erholungszeit &mdash; Tage bis Vollregeneration</div>
+        <p>Basiert auf dem Banister Impulse-Response Modell (Morton et&thinsp;al., <em>J Appl Physiol</em> 1990). Ermüdung klingt exponentiell ab &mdash; der Zeitpunkt vollständiger Erholung ergibt sich als:</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">T = &tau;&thinsp;&middot;&thinsp;ln(1&thinsp;+&thinsp;L&thinsp;/&thinsp;L&#8320;)</p>
+        <p class="mt-1">Zwei Systeme werden getrennt bewertet &mdash; <strong>kardiovaskul&auml;r</strong> (Ausdauer&thinsp;+&thinsp;Schwelle&thinsp;+&thinsp;Laktat) und <strong>neuromuskul&auml;r</strong> (Speed&thinsp;+&thinsp;Kraft). Das dominante System bestimmt die Basis; das sekund&auml;re System addiert 40&thinsp;% zusätzlich (da beide parallel erholt sein müssen):</p>
+        <p class="font-mono bg-white rounded px-2 py-1 mt-1 text-gray-700">T_total = T_dominant + 0,4&thinsp;&times;&thinsp;T_sekundär</p>
+        <p class="mt-1"><strong>Zwei getrennte Referenzlasten</strong> (verschiedene Einheiten pro System):</p>
+        <ul class="mt-1 space-y-0.5 pl-4 list-disc">
+          <li><strong>Kardiovaskul&auml;r</strong> &mdash; L&#8320; = 25 TRIMP-Einheiten. Kalibriert: 20&thinsp;min lockeres Laufen (~70&thinsp;% HRmax) &rarr; 1,0 Tag.</li>
+          <li><strong>Neuromuskul&auml;r</strong> &mdash; L&#8320; = 10 eff.Sek.&times;k. Kalibriert: 3&times;100&thinsp;m Maximalsprint (je ~12&thinsp;s, 15&thinsp;min Pause) &rarr; 3,0 Tage.</li>
+        </ul>
+        <p class="mt-1 text-gray-500 text-xs">Gewebespezifische Zeitkonstanten nach Howatson &amp; van Someren (<em>Sports Med</em> 2008).</p>
+      </div>
 
 </div>
 
@@ -513,7 +549,7 @@
 function app() {
   const today = new Date().toISOString().split('T')[0];
 
-  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft']);
+  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Easy Jumps','Explosive Jumps','Jump Runs','Kraft']);
 
   function newModule() {
     return { sport: 'Running', training_type: 'Steady State',
@@ -537,7 +573,7 @@ function app() {
 
     isInterval(mod)     { return INTERVAL_TYPES.has(mod.training_type) || mod.sport === 'Kraft'; },
     onSportChange(mod) {
-      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Jumps','Kraft','Einlaufen','Auslaufen','Sonstiges']);
+      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Easy Jumps','Explosive Jumps','Jump Runs','Kraft','Einlaufen','Auslaufen','Sonstiges']);
       if (mod.sport === 'Kraft' && genericTypes.has(mod.training_type)) {
         mod.training_type = 'Kniebeuge';
       } else if (mod.sport !== 'Kraft' && !genericTypes.has(mod.training_type)) {

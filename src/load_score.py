@@ -24,6 +24,8 @@ SPORT_LOAD_FACTORS: dict[str, float] = {
     "radfahren": 1.0,
     "swim":      1.1,
     "schwimmen": 1.1,
+    "hiking":    1.2,
+    "wandern":   1.2,
 }
 
 
@@ -163,18 +165,25 @@ def compute_combined_load(
 # ─────────────────────────────────────────────────────────────────────────────
 
 _SPEED_TYPES: frozenset[str] = frozenset({
-    "sprint", "sprints", "speed drills", "skippings", "a-skips", "power", "jumps",
+    "sprint", "sprints",
+    "steigerungsläufe", "acceleration run",
+    "speed drills", "skippings", "a-skips",
     "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
+    "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe",
 })
 _SPEED_SPORTS: frozenset[str] = frozenset({
-    "speed drills", "sprint", "power",
+    "speed drills", "sprint",
 })
 
 # Sub-classification within the speed category
 _SPRINT_TYPES: frozenset[str] = frozenset({"sprint", "sprints"})
+_ACCEL_TYPES:  frozenset[str] = frozenset({"steigerungsläufe", "acceleration run"})
 _DRILL_TYPES:  frozenset[str] = frozenset({
-    "skippings", "a-skips", "speed drills", "power", "jumps",
+    "skippings", "a-skips", "speed drills",
     "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
+})
+_JUMP_TYPES:   frozenset[str] = frozenset({
+    "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe",
 })
 _BIKE_SPORTS:  frozenset[str] = frozenset({"bike", "rad", "radfahren", "cycling", "fahrrad"})
 _KRAFT_SPORTS: frozenset[str] = frozenset({"kraft"})
@@ -184,12 +193,16 @@ def _speed_intensity_factor(sport: str, training_type: str, is_maximal) -> float
     """Return intensity weight within the speed category (applied on top of k_sport).
 
     Effective factor (this value × k_sport):
-      Sprint maximal    Laufen : 1.00 × 1.3 = 1.30
-      Sprint submaximal Laufen : 0.35 × 1.3 = 0.46
-      Drills/skippings  Laufen : 0.15 × 1.3 = 0.20
-      Sprint maximal    Rad    : 0.12 × 1.0 = 0.12
-      Sprint submaximal Rad    : 0.06 × 1.0 = 0.06
-      Drill             Rad    : 0.05 × 1.0 = 0.05
+      Sprint maximal       Laufen : 1.00 × 1.3 = 1.30
+      Sprint submaximal    Laufen : 0.35 × 1.3 = 0.46
+      Steigerungsläufe     Laufen : 0.22 × 1.3 = 0.29
+      Jump Runs            Laufen : 0.35 × 1.3 = 0.46
+      Explosive Jumps      Laufen : 0.50 × 1.3 = 0.65
+      Easy Jumps           Laufen : 0.20 × 1.3 = 0.26
+      Drills/skippings     Laufen : 0.15 × 1.3 = 0.20
+      Sprint maximal       Rad    : 0.12 × 1.0 = 0.12
+      Sprint submaximal    Rad    : 0.06 × 1.0 = 0.06
+      Drill / Jump         Rad    : 0.05 × 1.0 = 0.05
 
     is_maximal=None (legacy data, no flag set) → treated as maximal for sprints.
     """
@@ -203,7 +216,20 @@ def _speed_intensity_factor(sport: str, training_type: str, is_maximal) -> float
             return 0.12 if maximal else 0.06
         return 1.0 if maximal else 0.35
 
-    # Drills, skippings, jumps, power, and any other speed type
+    if type_lc in _ACCEL_TYPES:
+        # Steigerungsläufe: start slow → less peak load than sub-max sprint
+        return 0.05 if is_bike else 0.22
+
+    if type_lc in _JUMP_TYPES:
+        if is_bike:
+            return 0.05
+        if type_lc == "explosive jumps":
+            return 0.50   # plyometric: high neuromuscular cost
+        if type_lc in ("jump runs", "sprungläufe"):
+            return 0.35   # bounding runs: comparable to sub-max sprint
+        return 0.20       # easy jumps / legacy 'jumps'
+
+    # Drills, skippings, and any other speed type
     return 0.05 if is_bike else 0.15
 
 
@@ -231,18 +257,31 @@ def _classify_module(
 
 
 # Recovery-cost weights per stimulus zone.
-# Rationale: recovery demand is non-linear with intensity.
-# Zone multipliers reflect empirical recovery-time ratios relative to Zone 1.
+# Based on Banister IR model (Morton et al., J Appl Physiol 1990) and tissue-specific
+# fatigue decay constants (Howatson & van Someren, Sports Med 2008).
 #   Aerobic  (< 75 % HRmax)  → 1–2 days  → k = 1.0  (baseline)
-#   Schwelle (75–87 % HRmax) → 2–3 days  → k = 2.5
+#   Schwelle (75–87 % HRmax) → 2–3 days  → k = 3.0  (updated from 2.5)
 #   Laktat   (> 87 % HRmax)  → 4–6 days  → k = 6.0
-#   Speed/Strength (neuromusc.) → 3–6 days → k_NM = 1.0
-#     (speed volume in [s × k_Sport] contributes directly)
+#   Speed (neuromuscular)    → 3–5 days  → k = 4.0  (updated: impact + tendon > Kraft)
+#   Kraft    (strength)      → 2–4 days  → k = 3.0
 _K_AEROBIC   : float = 1.0
-_K_THRESHOLD : float = 2.5
+_K_THRESHOLD : float = 3.0   # updated: 2.5 → 3.0
 _K_LACTATE   : float = 6.0
-_K_SPEED     : float = 1.0   # [s × k_Sport] → same scale as recovery-weighted TRIMP
-_K_KRAFT     : float = 3.0   # [reps × k_explosive × k_Sport] → 2–4 days recovery
+_K_SPEED     : float = 4.0   # updated: 1.0 → 4.0 (neuromuscular + impact load)
+_K_KRAFT     : float = 3.0
+
+# Recovery-time calibration (Banister fatigue-decay model: T_rec = ln(1 + L/L₀)).
+# Two separate reference loads because the two subsystems use different units:
+#
+#   _L_REF_CARDIO  – TRIMP units (metabolic load).
+#                    Calibrated: 20 min easy run at ~70 % HRmax → 1.0 day.
+#                    TRIMP≈33, aer=33×1.3=42.9, L₀ = 42.9 / (e−1) ≈ 25.
+#
+#   _L_REF_NEURO   – eff-seconds × k_Sport × k_Speed units (neuromuscular load).
+#                    Calibrated: 3 × 100 m near-maximal sprint (12 s each) → 3.0 days.
+#                    neuro_wt = 3×12×1.0×1.3×4.0 = 187.2, L₀ = 187.2 / (e³−1) ≈ 10.
+_L_REF_CARDIO: float = 25.0
+_L_REF_NEURO:  float = 10.0
 
 
 def compute_session_scores(
@@ -260,7 +299,9 @@ def compute_session_scores(
     laktatreiz        – high-intensity TRIMP (> 87 % HRmax, lactate tolerance)
     schnelligkeitsreiz – neuromuscular volume: sets × duration_s × k_Sport [s]
     regenerationsbedarf – recovery-weighted sum of all stimulus scores:
-                        aer×1.0 + schw×2.5 + lak×6.0 + speed×1.0
+                        aer×1.0 + schw×3.0 + lak×6.0 + speed×4.0 + kraft×3.0
+    recovery_days       – estimated days to full recovery (Banister fatigue-decay model,
+                        Morton et al. 1990): two-system model (cardio vs. neuromusc.)
 
     Parameters
     ----------
@@ -343,19 +384,24 @@ def compute_session_scores(
         lak   = grp.loc[grp["category"] == "lactate",    "total_load"].sum() + drill_lak
         speed = (grp.loc[is_speed, "speed_vol_s"] * grp.loc[is_speed, "sport_factor"]).sum()
         kraft = (grp.loc[is_kraft, "kraft_vol"]   * grp.loc[is_kraft, "sport_factor"]).sum()
+        cardio_wt = aer * _K_AEROBIC + schw * _K_THRESHOLD + lak * _K_LACTATE
+        neuro_wt  = speed * _K_SPEED  + kraft * _K_KRAFT
+        # Recovery estimate: Banister fatigue-decay model, two-system approach.
+        # T_rec = τ · ln(1 + L/L₀), dominant system sets baseline, secondary adds 40%.
+        t_cardio = float(np.log1p(cardio_wt / _L_REF_CARDIO)) if cardio_wt > 0 else 0.0
+        t_neuro  = float(np.log1p(neuro_wt  / _L_REF_NEURO))  if neuro_wt  > 0 else 0.0
+        t_dom    = max(t_cardio, t_neuro)
+        t_sec    = min(t_cardio, t_neuro)
         records.append({
             "date":               date_val,
             "module_count":       len(grp),
-            "regenerationsbedarf": (aer   * _K_AEROBIC
-                                   + schw  * _K_THRESHOLD
-                                   + lak   * _K_LACTATE
-                                   + speed * _K_SPEED
-                                   + kraft * _K_KRAFT),
+            "regenerationsbedarf": cardio_wt + neuro_wt,
             "ausdauerreiz":       aer,
             "schwellenreiz":      schw,
             "laktatreiz":         lak,
             "schnelligkeitsreiz": speed,
             "kraftreiz":          kraft,
+            "recovery_days":      round(t_dom + 0.4 * t_sec, 1),
         })
 
     df_daily = pd.DataFrame(records).sort_values("date").reset_index(drop=True)
