@@ -64,6 +64,7 @@ def get_load_score(db: Session = Depends(get_session)):
                 "duration_[s]":    m.duration_s,
                 "is_maximal":      m.is_maximal,
                 "is_explosive":    m.is_explosive,
+                "jump_type":       m.jump_type,
                 "series":          m.series,
                 "sets_per_serie":  m.sets,
                 "pause_s":         m.pause_s,

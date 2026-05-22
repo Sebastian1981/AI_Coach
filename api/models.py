@@ -32,6 +32,9 @@ class TrainingModule(SQLModel, table=True):
     weight_kg: Optional[float] = None
     bodyweight: Optional[bool] = None
     notes: Optional[str] = None
+    jump_type: Optional[str] = None
+    weight_vest: Optional[bool] = None
+    additional_weight_kg: Optional[float] = None
 
 
 class AthleteProfile(SQLModel, table=True):
@@ -71,6 +74,9 @@ class ModuleIn(BaseModel):
     weight_kg: Optional[float] = None
     bodyweight: Optional[bool] = None
     notes: Optional[str] = None
+    jump_type: Optional[str] = None
+    weight_vest: Optional[bool] = None
+    additional_weight_kg: Optional[float] = None
 
 
 class ModuleOut(ModuleIn):

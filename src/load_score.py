@@ -169,7 +169,9 @@ _SPEED_TYPES: frozenset[str] = frozenset({
     "steigerungsläufe", "acceleration run",
     "speed drills", "skippings", "a-skips",
     "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
+    "treppenläufe (1er)", "treppenläufe (2er)",
     "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe",
+    "sprünge",  # structured jump modules (with jump_type subcategory)
 })
 _SPEED_SPORTS: frozenset[str] = frozenset({
     "speed drills", "sprint",
@@ -181,15 +183,17 @@ _ACCEL_TYPES:  frozenset[str] = frozenset({"steigerungsläufe", "acceleration ru
 _DRILL_TYPES:  frozenset[str] = frozenset({
     "skippings", "a-skips", "speed drills",
     "hopserlauf", "kniehebelauf", "anfersen", "legcycling drill", "pawing drill", "seitgalopp",
+    "treppenläufe (1er)", "treppenläufe (2er)",
 })
 _JUMP_TYPES:   frozenset[str] = frozenset({
-    "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe",
+    "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe", "sprünge",
+    "treppenläufe (1er)", "treppenläufe (2er)",
 })
 _BIKE_SPORTS:  frozenset[str] = frozenset({"bike", "rad", "radfahren", "cycling", "fahrrad"})
 _KRAFT_SPORTS: frozenset[str] = frozenset({"kraft"})
 
 
-def _speed_intensity_factor(sport: str, training_type: str, is_maximal) -> float:
+def _speed_intensity_factor(sport: str, training_type: str, is_maximal, row_jump_type=None) -> float:
     """Return intensity weight within the speed category (applied on top of k_sport).
 
     Effective factor (this value × k_sport):
@@ -223,11 +227,29 @@ def _speed_intensity_factor(sport: str, training_type: str, is_maximal) -> float
     if type_lc in _JUMP_TYPES:
         if is_bike:
             return 0.05
+        # New structured jump_type field (training_type == 'sprünge')
+        jump_sub = str(row_jump_type or "").lower().strip() if row_jump_type is not None else type_lc
+        if jump_sub in ("explosive sprünge", "explosive jumps"):
+            return 0.50   # plyometric: max effort, high neuromuscular cost
+        if jump_sub in ("laufsprünge", "jump runs", "sprungläufe", "treppensprünge", "stair jumps"):
+            return 0.35   # bounding / stair jumps: comparable to sub-max sprint
+        if jump_sub in ("fußgelenkssprünge", "reactive jumps"):
+            return 0.30   # reactive ankle jumps
+        if jump_sub in ("einbeinsprünge", "single-leg jumps"):
+            return 0.40   # unilateral: higher load per rep
+        if jump_sub == "kraftsprünge":
+            return 0.25   # power jumps ~50 % effort
+        # Legacy names or no subtype
         if type_lc == "explosive jumps":
-            return 0.50   # plyometric: high neuromuscular cost
+            return 0.50
         if type_lc in ("jump runs", "sprungläufe"):
-            return 0.35   # bounding runs: comparable to sub-max sprint
+            return 0.35
         return 0.20       # easy jumps / legacy 'jumps'
+
+    if type_lc == "treppenläufe (2er)":
+        return 0.05 if is_bike else 0.35   # two-step stair run: like sub-max sprint
+    if type_lc == "treppenläufe (1er)":
+        return 0.05 if is_bike else 0.25   # one-step skipping stair: drill-like
 
     # Drills, skippings, and any other speed type
     return 0.05 if is_bike else 0.15
@@ -282,6 +304,7 @@ _K_KRAFT     : float = 3.0
 #                    neuro_wt = 3×12×1.0×1.3×4.0 = 187.2, L₀ = 187.2 / (e³−1) ≈ 10.
 _L_REF_CARDIO: float = 25.0
 _L_REF_NEURO:  float = 10.0
+_JUMP_REP_TIME_S: float = 2.0  # effective seconds per jump rep (plyometric effort)
 
 
 def compute_session_scores(
@@ -324,13 +347,25 @@ def compute_session_scores(
     sets_s  = pd.to_numeric(df.get("sets",         pd.Series(dtype=float, index=df.index)), errors="coerce")
     dur_s_s = pd.to_numeric(df.get("duration_[s]", pd.Series(dtype=float, index=df.index)), errors="coerce")
 
+    # For jump modules: when reps are given but no duration_s, estimate effective
+    # work time as reps × _JUMP_REP_TIME_S (≈2 s/rep for plyometric jumps).
+    # This keeps speed_vol and block_time non-zero regardless of input style.
+    _training_type_col = df.get("training_type", pd.Series([""] * len(df), dtype=str, index=df.index))
+    _is_jump_row = _training_type_col.str.lower().str.strip().isin(_JUMP_TYPES)
+    _reps_raw    = pd.to_numeric(df.get("reps", pd.Series(dtype=float, index=df.index)), errors="coerce")
+    dur_s_effective = dur_s_s.where(
+        dur_s_s.notna() | ~_is_jump_row,
+        _reps_raw * _JUMP_REP_TIME_S,
+    )
+
     # Per-module intensity weight: sprint max/sub vs. drill, and bike penalty
     _is_maximal  = df.get("is_maximal", pd.Series([None] * len(df), dtype=object, index=df.index))
+    _jump_types  = df.get("jump_type",  pd.Series([None] * len(df), dtype=object, index=df.index))
     _spd_factors = [
-        _speed_intensity_factor(r.sport, r.training_type, _is_maximal.iloc[i])
+        _speed_intensity_factor(r.sport, r.training_type, _is_maximal.iloc[i], _jump_types.iloc[i])
         for i, r in enumerate(df_mod.itertuples())
     ]
-    df_mod["speed_vol_s"] = (sets_s.fillna(0) * dur_s_s.fillna(0)).values * np.array(_spd_factors)
+    df_mod["speed_vol_s"] = (sets_s.fillna(0) * dur_s_effective.fillna(0)).values * np.array(_spd_factors)
 
     # Kraft volume: effective_sets × reps × k_explosive × k_sport
     reps_s       = pd.to_numeric(df.get("reps", pd.Series(dtype=float, index=df.index)), errors="coerce")
@@ -348,7 +383,7 @@ def compute_session_scores(
     sets_v     = pd.to_numeric(df.get("sets_per_serie", pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(1)
     pause_v    = pd.to_numeric(df.get("pause_s",        pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
     s_pause_v  = pd.to_numeric(df.get("series_pause_s", pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
-    dur_s_raw  = pd.to_numeric(df.get("duration_[s]",   pd.Series(dtype=float, index=df.index)), errors="coerce").fillna(0)
+    dur_s_raw  = dur_s_effective.fillna(0)  # uses rep×time fallback for jump modules
 
     block_s = (series_v * sets_v * dur_s_raw
                + series_v * (sets_v - 1).clip(lower=0) * pause_v

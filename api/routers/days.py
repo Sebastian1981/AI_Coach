@@ -36,6 +36,9 @@ def create_day(data: DayIn, db: Session = Depends(get_session)):
             weight_kg=m.weight_kg,
             bodyweight=m.bodyweight,
             notes=m.notes,
+            jump_type=m.jump_type,
+            weight_vest=m.weight_vest,
+            additional_weight_kg=m.additional_weight_kg,
         )
         db.add(mod)
         saved_mods.append(mod)
@@ -55,6 +58,7 @@ def create_day(data: DayIn, db: Session = Depends(get_session)):
                 sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
+                jump_type=m.jump_type, weight_vest=m.weight_vest, additional_weight_kg=m.additional_weight_kg,
             )
             for m in saved_mods
         ],
@@ -81,6 +85,7 @@ def list_days(db: Session = Depends(get_session)):
                     sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
+                jump_type=m.jump_type, weight_vest=m.weight_vest, additional_weight_kg=m.additional_weight_kg,
                 )
                 for m in mods
             ],
@@ -107,6 +112,7 @@ def update_day(day_id: int, data: DayIn, db: Session = Depends(get_session)):
             heart_rate_bpm=m.heart_rate_bpm, sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive,
             pause_s=m.pause_s, series=m.series, series_pause_s=m.series_pause_s,
             weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
+            jump_type=m.jump_type, weight_vest=m.weight_vest, additional_weight_kg=m.additional_weight_kg,
         )
         db.add(mod)
         saved_mods.append(mod)
@@ -125,6 +131,7 @@ def update_day(day_id: int, data: DayIn, db: Session = Depends(get_session)):
                 sets=m.sets, reps=m.reps, duration_s=m.duration_s, distance_m=m.distance_m, is_maximal=m.is_maximal, is_explosive=m.is_explosive, pause_s=m.pause_s,
                 series=m.series, series_pause_s=m.series_pause_s,
                 weight_kg=m.weight_kg, bodyweight=m.bodyweight, notes=m.notes,
+                jump_type=m.jump_type, weight_vest=m.weight_vest, additional_weight_kg=m.additional_weight_kg,
             )
             for m in saved_mods
         ],

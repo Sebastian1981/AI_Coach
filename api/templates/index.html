@@ -143,10 +143,11 @@
                         <option>Pawing Drill</option>
                         <option>Seitgalopp</option>
                       </optgroup>
-                      <optgroup label="Spr&uuml;nge">
-                        <option>Easy Jumps</option>
-                        <option>Explosive Jumps</option>
-                        <option>Jump Runs</option>
+                      <option>Spr&uuml;nge</option>
+                      <optgroup label="H&uuml;gel &amp; Treppen">
+                        <option>Bergl&auml;ufe</option>
+                        <option>Treppenl&auml;ufe (1er)</option>
+                        <option>Treppenl&auml;ufe (2er)</option>
                       </optgroup>
                       <option>Kraft</option>
                       <option>Einlaufen</option>
@@ -193,6 +194,21 @@
                     </select>
                   </div>
                 </div>
+              </div>
+
+              <!-- Sprung-Subtyp (nur bei Trainingsart = Sprünge) -->
+              <div x-show="mod.training_type === 'Spr\u00fcnge'" class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Sprungtyp</label>
+                <select x-model="mod.jump_type"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">-- bitte wählen --</option>
+                  <option>Laufsprünge</option>
+                  <option>Explosive Sprünge</option>
+                  <option>Kraftsprünge</option>
+                  <option>Fußgelenkssprünge</option>
+                  <option>Treppensprünge</option>
+                  <option>Einbeinsprünge</option>
+                </select>
               </div>
 
               <!-- Steady: duration_min (shown when training_type is NOT interval) -->
@@ -251,6 +267,18 @@
                     <input type="checkbox" x-model="mod.bodyweight" @change="if(mod.bodyweight) mod.weight_kg = ''" class="rounded" />
                     K&#246;rpergewicht
                   </label>
+                </div>
+                <!-- Gewichtsweste (nur bei Sprüngen) -->
+                <div x-show="mod.training_type === 'Spr\u00fcnge'" class="flex items-end pb-2">
+                  <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" x-model="mod.weight_vest" class="rounded" />
+                    Gewichtsweste
+                  </label>
+                </div>
+                <div x-show="mod.training_type === 'Spr\u00fcnge' && mod.weight_vest">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Westengewicht [kg]</label>
+                  <input type="number" x-model="mod.additional_weight_kg" min="0" step="0.5" placeholder="5"
+                         class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Satzpause [s]</label>
@@ -505,9 +533,12 @@
             <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Sprint maximal</td><td class="px-2 py-0.5 font-mono">1,00</td></tr>
             <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Sprint submaximal</td><td class="px-2 py-0.5 font-mono">0,35</td></tr>
             <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Steigerungsl&auml;ufe</td><td class="px-2 py-0.5 font-mono">0,22</td></tr>
-            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Jump Runs</td><td class="px-2 py-0.5 font-mono">0,35</td></tr>
-            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Explosive Jumps</td><td class="px-2 py-0.5 font-mono">0,50</td></tr>
-            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Easy Jumps</td><td class="px-2 py-0.5 font-mono">0,20</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Jump Runs / Treppenl&auml;ufe (2er)</td><td class="px-2 py-0.5 font-mono">0,35</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Explosive Spr&uuml;nge</td><td class="px-2 py-0.5 font-mono">0,50</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Einbeinspr&uuml;nge</td><td class="px-2 py-0.5 font-mono">0,40</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Fu&szlig;gelenksspr&uuml;nge</td><td class="px-2 py-0.5 font-mono">0,30</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Kraftspr&uuml;nge / Treppenl&auml;ufe (1er)</td><td class="px-2 py-0.5 font-mono">0,25</td></tr>
+            <tr class="border-b border-gray-50"><td class="px-2 py-0.5">Easy Jumps (Legacy)</td><td class="px-2 py-0.5 font-mono">0,20</td></tr>
             <tr><td class="px-2 py-0.5">Drills (Skippings, A-Skips, Hopserlauf &hellip;)</td><td class="px-2 py-0.5 font-mono">0,15</td></tr>
           </tbody>
         </table>
@@ -549,12 +580,13 @@
 function app() {
   const today = new Date().toISOString().split('T')[0];
 
-  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Easy Jumps','Explosive Jumps','Jump Runs','Kraft']);
+  const INTERVAL_TYPES = new Set(['Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Sprünge','Treppenläufe (1er)','Treppenläufe (2er)','Kraft']);
 
   function newModule() {
     return { sport: 'Running', training_type: 'Steady State',
              duration_min: '', heart_rate_bpm: '', series: '', sets: '', reps: '', is_maximal: true, is_explosive: false, duration_s: '', distance_m: '',
-             weight_kg: '', bodyweight: false, pause_s: '', series_pause_s: '', notes: '' };
+             weight_kg: '', bodyweight: false, pause_s: '', series_pause_s: '', notes: '',
+             jump_type: '', weight_vest: false, additional_weight_kg: '' };
   }
 
   return {
@@ -573,7 +605,7 @@ function app() {
 
     isInterval(mod)     { return INTERVAL_TYPES.has(mod.training_type) || mod.sport === 'Kraft'; },
     onSportChange(mod) {
-      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Easy Jumps','Explosive Jumps','Jump Runs','Kraft','Einlaufen','Auslaufen','Sonstiges']);
+      const genericTypes = new Set(['Steady State','Intervalls','Sprints','Steigerungsläufe','Skippings','A-Skips','Hopserlauf','Kniehebelauf','Anfersen','Legcycling Drill','Pawing Drill','Seitgalopp','Sprünge','Bergläufe','Treppenläufe (1er)','Treppenläufe (2er)','Kraft','Einlaufen','Auslaufen','Sonstiges']);
       if (mod.sport === 'Kraft' && genericTypes.has(mod.training_type)) {
         mod.training_type = 'Kniebeuge';
       } else if (mod.sport !== 'Kraft' && !genericTypes.has(mod.training_type)) {
@@ -601,6 +633,9 @@ function app() {
         pause_s:         this.isInterval(mod) && mod.pause_s        ? parseFloat(mod.pause_s)        : null,
         series_pause_s:  this.isInterval(mod) && mod.series_pause_s ? parseFloat(mod.series_pause_s) : null,
         notes:           mod.notes || null,
+        jump_type:            mod.training_type === 'Sprünge' ? (mod.jump_type || null) : null,
+        weight_vest:          mod.training_type === 'Sprünge' ? (mod.weight_vest || null) : null,
+        additional_weight_kg: mod.training_type === 'Sprünge' && mod.weight_vest && mod.additional_weight_kg ? parseFloat(mod.additional_weight_kg) : null,
       }));
       try {
         const url    = this.editDayId ? `/api/days/${this.editDayId}` : '/api/days';
@@ -671,6 +706,9 @@ function app() {
         pause_s:        m.pause_s        ?? '',
         series_pause_s: m.series_pause_s ?? '',
         notes:          m.notes          ?? '',
+        jump_type:            m.jump_type            ?? '',
+        weight_vest:          m.weight_vest          ?? false,
+        additional_weight_kg: m.additional_weight_kg ?? '',
       }));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
@@ -688,6 +726,7 @@ function app() {
       let label  = `${s}${mod.sets}${reps}${dur}${dist}`;
       if (mod.bodyweight)      label += ' @ KG';
       else if (mod.weight_kg)  label += ` @ ${mod.weight_kg} kg`;
+      if (mod.weight_vest)     label += mod.additional_weight_kg ? ` + Weste ${mod.additional_weight_kg} kg` : ' + Weste';
       const pauses = [];
       if (mod.pause_s)        pauses.push(`Satzp: ${mod.pause_s}s`);
       if (mod.series_pause_s) pauses.push(`Serienp: ${mod.series_pause_s}s`);
