@@ -119,6 +119,7 @@
                     <option>Speed Drills</option>
                     <option>Sprint</option>
                     <option>Hiking</option>
+                    <option>Trampolin</option>
                     <option>Kraft</option>
                     <option>Sonstiges</option>
                   </select>
@@ -235,10 +236,10 @@
                   <input type="number" x-model="mod.reps" min="1" step="1" placeholder="10"
                          class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
-                <div x-show="mod.training_type.toLowerCase().includes('sprint')" class="flex items-end pb-2">
+                <div x-show="mod.training_type.toLowerCase().includes('sprint') || mod.sport === 'Trampolin'" class="flex items-end pb-2">
                   <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer">
                     <input type="checkbox" x-model="mod.is_maximal" class="rounded" />
-                    Maximal
+                    Explosiv
                   </label>
                 </div>
                 <div x-show="mod.sport === 'Kraft'" class="flex items-end pb-2">
@@ -624,7 +625,7 @@ function app() {
         series:          this.isInterval(mod) && mod.series         ? parseInt(mod.series)            : null,
         sets:            this.isInterval(mod) && mod.sets           ? parseInt(mod.sets)              : null,
         reps:            this.isInterval(mod) && mod.reps            ? parseInt(mod.reps)              : null,
-        is_maximal:      this.isInterval(mod) && mod.training_type.toLowerCase().includes('sprint') ? Boolean(mod.is_maximal) : null,
+        is_maximal:      this.isInterval(mod) && (mod.training_type.toLowerCase().includes('sprint') || mod.sport === 'Trampolin') ? Boolean(mod.is_maximal) : null,
         is_explosive:    mod.sport === 'Kraft' ? Boolean(mod.is_explosive) : null,
         duration_s:      this.isInterval(mod) && mod.duration_s     ? parseFloat(mod.duration_s)     : null,
         distance_m:      this.isInterval(mod) && mod.distance_m     ? parseFloat(mod.distance_m)     : null,

@@ -17,15 +17,17 @@ import pandas as pd
 # Sport-specific correction factors for orthopaedic / neuromuscular overhead.
 # Reference: cycling = 1.0  (lowest ground-reaction force, no impact)
 SPORT_LOAD_FACTORS: dict[str, float] = {
-    "run":       1.3,
-    "laufen":    1.3,
-    "bike":      1.0,
-    "rad":       1.0,
-    "radfahren": 1.0,
-    "swim":      1.1,
-    "schwimmen": 1.1,
-    "hiking":    1.2,
-    "wandern":   1.2,
+    "run":        1.3,
+    "laufen":     1.3,
+    "bike":       1.0,
+    "rad":        1.0,
+    "radfahren":  1.0,
+    "swim":       1.1,
+    "schwimmen":  1.1,
+    "hiking":     1.2,
+    "wandern":    1.2,
+    # no ground-impact (trampoline absorbs force), but real neuromuscular jump cost
+    "trampolin":  1.15,
 }
 
 
@@ -189,8 +191,9 @@ _JUMP_TYPES:   frozenset[str] = frozenset({
     "jumps", "easy jumps", "explosive jumps", "jump runs", "sprungläufe", "sprünge",
     "treppenläufe (1er)", "treppenläufe (2er)",
 })
-_BIKE_SPORTS:  frozenset[str] = frozenset({"bike", "rad", "radfahren", "cycling", "fahrrad"})
-_KRAFT_SPORTS: frozenset[str] = frozenset({"kraft"})
+_BIKE_SPORTS:      frozenset[str] = frozenset({"bike", "rad", "radfahren", "cycling", "fahrrad"})
+_KRAFT_SPORTS:     frozenset[str] = frozenset({"kraft"})
+_TRAMPOLIN_SPORTS: frozenset[str] = frozenset({"trampolin"})
 
 
 def _speed_intensity_factor(sport: str, training_type: str, is_maximal, row_jump_type=None) -> float:
@@ -251,6 +254,11 @@ def _speed_intensity_factor(sport: str, training_type: str, is_maximal, row_jump
     if type_lc == "treppenläufe (1er)":
         return 0.05 if is_bike else 0.25   # one-step skipping stair: drill-like
 
+    if sport_lc in _TRAMPOLIN_SPORTS:
+        # sustained bouncing (30-60 s/set) → per-second neuro cost is low; HR-TRIMP covers cardio
+        maximal = is_maximal is not False
+        return 0.07 if maximal else 0.04
+
     # Drills, skippings, and any other speed type
     return 0.05 if is_bike else 0.15
 
@@ -264,6 +272,10 @@ def _classify_module(
     """Return stimulus category: 'speed' | 'aerobic' | 'threshold' | 'lactate' | 'kraft'."""
     if (sport or "").lower().strip() in _KRAFT_SPORTS:
         return "kraft"
+    if (sport or "").lower().strip() in _TRAMPOLIN_SPORTS:
+        if (training_type or "").lower().strip() == "intervalls":
+            return "speed"   # explosive jumps → neuromuscular; HR captured separately via drill_trimp
+        # steady state → fall through to HR zones
     if (training_type or "").lower().strip() in _SPEED_TYPES:
         return "speed"
     if (sport or "").lower().strip() in _SPEED_SPORTS:
