@@ -268,18 +268,22 @@ def _classify_module(
     training_type: str,
     avg_hr: float,
     hr_max: int,
+    is_explosive=False,
 ) -> str:
     """Return stimulus category: 'speed' | 'aerobic' | 'threshold' | 'lactate' | 'kraft'."""
     if (sport or "").lower().strip() in _KRAFT_SPORTS:
         return "kraft"
     if (sport or "").lower().strip() in _TRAMPOLIN_SPORTS:
-        if (training_type or "").lower().strip() == "intervalls":
-            return "speed"   # explosive jumps → neuromuscular; HR captured separately via drill_trimp
-        # steady state → fall through to HR zones
+        return "speed" if bool(is_explosive) else _hr_zone(avg_hr, hr_max)
     if (training_type or "").lower().strip() in _SPEED_TYPES:
         return "speed"
     if (sport or "").lower().strip() in _SPEED_SPORTS:
         return "speed"
+    return _hr_zone(avg_hr, hr_max)
+
+
+def _hr_zone(avg_hr: float, hr_max: int) -> str:
+    """Classify cardiovascular stimulus from average heart rate."""
     if pd.isna(avg_hr):
         return "aerobic"
     pct = avg_hr / hr_max
@@ -350,9 +354,10 @@ def compute_session_scores(
     """
     df_mod, _ = compute_endurance_performance(df, hr_rest=hr_rest, hr_max=hr_max, b=b)
 
+    _is_explosive = df.get("is_explosive", pd.Series([False] * len(df), dtype=object, index=df.index))
     df_mod["category"] = [
-        _classify_module(r.sport, r.training_type, r.avg_hr_bpm, hr_max)
-        for r in df_mod.itertuples()
+        _classify_module(r.sport, r.training_type, r.avg_hr_bpm, hr_max, _is_explosive.iloc[i])
+        for i, r in enumerate(df_mod.itertuples())
     ]
 
     # Speed volume from original df (HR too slow for short efforts)
@@ -381,7 +386,6 @@ def compute_session_scores(
 
     # Kraft volume: effective_sets × reps × k_explosive × k_sport
     reps_s       = pd.to_numeric(df.get("reps", pd.Series(dtype=float, index=df.index)), errors="coerce")
-    _is_explosive = df.get("is_explosive", pd.Series([None] * len(df), dtype=object, index=df.index))
     _kft_factors  = [1.5 if _is_explosive.iloc[i] is True else 1.0 for i in range(len(df))]
     df_mod["kraft_vol"] = (sets_s.fillna(0) * reps_s.fillna(0)).values * np.array(_kft_factors)
 

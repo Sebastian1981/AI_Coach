@@ -21,13 +21,13 @@ The system is designed for **non-professional athletes** who want to:
 
 You can define a concrete target and receive a tailored training plan:
 
-| Goal | Example |
-|------|---------|
-| Endurance | Complete a half marathon or full marathon |
-| Middle distance | Run a 5K or 10K at target pace |
-| Speed | Maximize performance over 400m or 100m sprint |
-| Fitness | General cardiovascular health and body composition |
-| Strength | Improve gym performance alongside running/cycling |
+| Goal            | Example                                            |
+| --------------- | -------------------------------------------------- |
+| Endurance       | Complete a half marathon or full marathon          |
+| Middle distance | Run a 5K or 10K at target pace                     |
+| Speed           | Maximize performance over 400m or 100m sprint      |
+| Fitness         | General cardiovascular health and body composition |
+| Strength        | Improve gym performance alongside running/cycling  |
 
 For each goal, the system factors in your **current fitness level**, **recent training load**, **recovery state**, and **subjective well-being** to recommend a weekly or monthly training plan.
 
@@ -36,12 +36,14 @@ For each goal, the system factors in your **current fitness level**, **recent tr
 ## Data Sources
 
 ### Personal Training Data (Garmin Forerunner 265)
+
 - Activity files (`.fit` format) covering running, cycling, and gym sessions
 - Heart rate, pace, power, cadence, GPS data
 - HRV, VO2max estimates, sleep quality, and training load metrics
 - Subjective notes: perceived effort, energy levels, how you felt
 
 ### Scientific Knowledge Base
+
 - Peer-reviewed papers on endurance training periodization, polarized training, HIIT, and strength-endurance integration
 - Research on overtraining syndrome, recovery markers, and injury prevention
 - Evidence-based guidelines for amateur athletes from sources such as ACSM, NSCA, and leading sports science journals
@@ -75,15 +77,15 @@ Garmin Forerunner 265
 
 ### Key Technologies
 
-| Component | Technology |
-|-----------|-----------|
-| Activity download | USB `.fit` export or `garminconnect` Python library |
-| FIT file parsing | `fitparse` |
-| Data processing | `pandas`, `numpy` |
-| Scientific paper ingestion | `pypdf`, `unstructured` |
-| Embeddings & RAG | `FAISS` or `ChromaDB` + `sentence-transformers` / OpenAI Embeddings |
-| LLM interface | `openai` SDK or local model via `ollama` |
-| Agent / tool use | MCP (Model Context Protocol) server |
+| Component                  | Technology                                                                |
+| -------------------------- | ------------------------------------------------------------------------- |
+| Activity download          | USB`.fit` export or `garminconnect` Python library                    |
+| FIT file parsing           | `fitparse`                                                              |
+| Data processing            | `pandas`, `numpy`                                                     |
+| Scientific paper ingestion | `pypdf`, `unstructured`                                               |
+| Embeddings & RAG           | `FAISS` or `ChromaDB` + `sentence-transformers` / OpenAI Embeddings |
+| LLM interface              | `openai` SDK or local model via `ollama`                              |
+| Agent / tool use           | MCP (Model Context Protocol) server                                       |
 
 ---
 

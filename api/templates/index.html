@@ -626,7 +626,7 @@ function app() {
         sets:            this.isInterval(mod) && mod.sets           ? parseInt(mod.sets)              : null,
         reps:            this.isInterval(mod) && mod.reps            ? parseInt(mod.reps)              : null,
         is_maximal:      this.isInterval(mod) && (mod.training_type.toLowerCase().includes('sprint') || mod.sport === 'Trampolin') ? Boolean(mod.is_maximal) : null,
-        is_explosive:    mod.sport === 'Kraft' ? Boolean(mod.is_explosive) : null,
+        is_explosive:    (mod.sport === 'Kraft' || mod.sport === 'Trampolin') ? Boolean(mod.is_explosive) : null,
         duration_s:      this.isInterval(mod) && mod.duration_s     ? parseFloat(mod.duration_s)     : null,
         distance_m:      this.isInterval(mod) && mod.distance_m     ? parseFloat(mod.distance_m)     : null,
         weight_kg:       this.isInterval(mod) && mod.weight_kg && !mod.bodyweight ? parseFloat(mod.weight_kg) : null,
